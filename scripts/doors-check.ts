@@ -239,6 +239,55 @@ async function main(): Promise<void> {
   assert.strictEqual(world.getBlockMetadata(above(second, 2)) & 1, 0, "next to another door on its right, the hinge stays left");
   console.log("ok hinge placement follows walls and neighbouring doors");
 
+  // ---------------------------------------------------------------- shapes (vanilla cares about the block shape, not just light)
+  const STAIRS = 53;
+  const STONE_SLAB = 44;
+  const HOPPER = 154;
+  const doorAt = (b: Pos): boolean => world.getBlockId(above(b)) === OAK_DOOR;
+
+  // Stairs stop light but are not full cubes, so they must not pull the hinge towards them.
+  base = arena(300, 100);
+  player.yaw = 0; // facing south: the right-hand side is west (-x)
+  world.setBlock({ x: base.x - 1, y: base.y + 1, z: base.z }, STAIRS);
+  world.setBlock({ x: base.x - 1, y: base.y + 2, z: base.z }, STAIRS);
+  rightClick(base, 1, OAK_DOOR_ITEM);
+  assert.strictEqual(world.getBlockMetadata(above(base, 2)), 8, "stairs beside a door must not move the hinge (still on the left)");
+  console.log("ok stairs beside a door do not count as a wall for the hinge");
+
+  // What may hold a door up.
+  const supports: Array<[string, number, number, boolean]> = [
+    ["a full block", Block.Stone, 0, true],
+    ["a bottom slab", STONE_SLAB, 0, false],
+    ["a top slab", STONE_SLAB, 8, true],
+    ["a normal stair", STAIRS, 0, false],
+    ["an upside-down stair", STAIRS, 4, true],
+    ["a hopper", HOPPER, 0, true],
+    ["a full-height snow layer", 78, 7, true],
+    ["a thin snow layer", 78, 0, false],
+    ["farmland", 60, 0, false],
+  ];
+  for (const [name, id, meta, allowed] of supports) {
+    base = arena(320, 100);
+    world.setBlock(base, id, meta);
+    rightClick(base, 1, OAK_DOOR_ITEM);
+    assert.strictEqual(doorAt(base), allowed, "a door " + (allowed ? "should" : "should not") + " go on " + name);
+  }
+  console.log("ok doors need a solid top surface: full blocks, top slabs, upside-down stairs and hoppers work; bottom slabs and stairs do not");
+
+  // Top of the world: the lower half may be at y=254 (the upper half is then at 255), but not at 255.
+  const column = { x: 340, y: 253, z: 100 };
+  world.setBlock(column, Block.Stone);
+  for (const y of [254, 255]) world.setBlock({ x: column.x, y, z: column.z }, Block.Air);
+  rightClick(column, 1, OAK_DOOR_ITEM);
+  assert.strictEqual(world.getBlockId({ x: column.x, y: 254, z: column.z }), OAK_DOOR, "lower half at y=254 is allowed");
+  assert.strictEqual(world.getBlockId({ x: column.x, y: 255, z: column.z }), OAK_DOOR, "upper half at y=255");
+  const roof = { x: 342, y: 254, z: 100 };
+  world.setBlock(roof, Block.Stone);
+  world.setBlock({ x: roof.x, y: 255, z: roof.z }, Block.Air);
+  rightClick(roof, 1, OAK_DOOR_ITEM);
+  assert.strictEqual(world.getBlockId({ x: roof.x, y: 255, z: roof.z }), Block.Air, "no door when the lower half would be at y=255");
+  console.log("ok doors fit up to the top of the world, but no higher");
+
   console.log("ALL DOOR CHECKS PASS");
 }
 

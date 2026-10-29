@@ -31,6 +31,13 @@ const IRON_DOOR = 71;
 const UPPER_HALF = 8;
 const OPEN = 4;
 
+// Blocks that stop light but are NOT full cubes. Vanilla's door rules care about the shape, not the light.
+const STAIRS = new Set([53, 67, 108, 109, 114, 128, 134, 135, 136, 156, 163, 164, 180]);
+const SLABS = new Set([44, 126, 182]); // single slabs (double slabs are full cubes)
+const FARMLAND = 60;
+const HOPPER = 154;
+const SNOW_LAYER = 78;
+
 /** Blocks a door may be placed into, as if they were air. */
 const REPLACEABLE = new Set<number>([Block.Air, 31, 32]); // air, tall grass, dead bush
 
@@ -68,18 +75,18 @@ export interface DoorPlan {
  * it would look, without changing anything. Returns null if it can't go there.
  */
 export function planDoor(world: World, target: BlockPosition, blockId: number, playerYaw: number): DoorPlan | null {
-  if (target.y < 1 || target.y > 253) return null;
+  if (target.y < 0 || target.y > 254) return null; // the upper half sits one higher, so 255 is the last block
 
   const below = { x: target.x, y: target.y - 1, z: target.z };
   const upper = { x: target.x, y: target.y + 1, z: target.z };
-  if (!isSolid(world, below)) return null; // needs something to stand on
+  if (!hasSolidTopSurface(world, below)) return null; // needs something to stand on
   if (!REPLACEABLE.has(world.getBlockId(target)) || !REPLACEABLE.has(world.getBlockId(upper))) return null;
 
   // Hinge: vanilla puts it next to a wall or an existing door so double doors line up.
   const facing = directionFromYaw(playerYaw);
   const rightSide = offset(target, DIRECTIONS[(facing + 1) & 3]);
   const leftSide = offset(target, DIRECTIONS[(facing + 3) & 3]);
-  const solidAt = (pos: BlockPosition): number => Number(isSolid(world, pos)) + Number(isSolid(world, up(pos)));
+  const solidAt = (pos: BlockPosition): number => Number(isNormalCube(world, pos)) + Number(isNormalCube(world, up(pos)));
   const hasDoorAt = (pos: BlockPosition): boolean => world.getBlockId(pos) === blockId || world.getBlockId(up(pos)) === blockId;
 
   const hingeRight = (hasDoorAt(leftSide) && !hasDoorAt(rightSide)) || solidAt(rightSide) > solidAt(leftSide);
@@ -124,9 +131,23 @@ export function removeOtherDoorHalf(server: MinecraftServer, pos: BlockPosition,
   server.setBlock(other, Block.Air, 0);
 }
 
-function isSolid(world: World, pos: BlockPosition): boolean {
+/** A plain full cube: stone, dirt, planks... Not stairs, slabs, farmland, glass or leaves. */
+function isNormalCube(world: World, pos: BlockPosition): boolean {
   const id = world.getBlockId(pos);
-  return id !== Block.Air && lightOpacity(id) === 255;
+  return id !== Block.Air && lightOpacity(id) === 255 && !STAIRS.has(id) && !SLABS.has(id) && id !== FARMLAND;
+}
+
+/**
+ * Whether something can hold a door up (vanilla's "solid top surface"): a full
+ * cube, an upside-down stair, a top-half slab, a hopper, or a full-height snow layer.
+ */
+function hasSolidTopSurface(world: World, pos: BlockPosition): boolean {
+  const id = world.getBlockId(pos);
+  const meta = world.getBlockMetadata(pos);
+  if (isNormalCube(world, pos)) return true;
+  if (STAIRS.has(id)) return (meta & 4) !== 0; // bit 4 = upside down
+  if (SLABS.has(id)) return (meta & 8) !== 0; // bit 8 = top half
+  return id === HOPPER || (id === SNOW_LAYER && meta === 7);
 }
 
 function offset(pos: BlockPosition, direction: { x: number; z: number }): BlockPosition {
