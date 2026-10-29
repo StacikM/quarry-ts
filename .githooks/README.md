@@ -7,9 +7,10 @@ including when amending a commit, and avoids duplicates.
 This checkout is configured already. After cloning, enable the hook with:
 
 ```sh
-git config core.hooksPath .githooks
+npm run setup-git
 ```
 
+The hook warns and lets the commit proceed if it cannot update the message.
 Keep both trailers when writing commit messages manually:
 
 ```text

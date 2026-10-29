@@ -2,4 +2,6 @@
 # Include both collaborators on every commit, without duplicating existing trailers.
 git interpret-trailers --in-place --if-exists addIfDifferent \
   --trailer 'Co-authored-by: Claude <noreply@anthropic.com>' \
-  --trailer 'Co-authored-by: Codex <noreply@openai.com>' "$1"
+  --trailer 'Co-authored-by: Codex <noreply@openai.com>' "$1" \
+  || printf '%s\n' 'warning: could not add Claude and Codex co-author trailers' >&2
+exit 0
