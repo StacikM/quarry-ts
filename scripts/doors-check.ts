@@ -288,6 +288,36 @@ async function main(): Promise<void> {
   assert.strictEqual(world.getBlockId({ x: roof.x, y: 255, z: roof.z }), Block.Air, "no door when the lower half would be at y=255");
   console.log("ok doors fit up to the top of the world, but no higher");
 
+  // Wall rule (hinge) and floor rule (support) are different in vanilla.
+  const REDSTONE_BLOCK = 152;
+  const SEE_THROUGH_CUBES: Array<[string, number]> = [["TNT", 46], ["glowstone", 89], ["sea lantern", 169]];
+
+  base = arena(360, 100);
+  player.yaw = 0; // right-hand side is west (-x)
+  world.setBlock({ x: base.x - 1, y: base.y + 1, z: base.z }, REDSTONE_BLOCK);
+  world.setBlock({ x: base.x - 1, y: base.y + 2, z: base.z }, REDSTONE_BLOCK);
+  rightClick(base, 1, OAK_DOOR_ITEM);
+  assert.strictEqual(world.getBlockMetadata(above(base, 2)), 8, "a redstone block is not a wall for the hinge");
+
+  base = arena(380, 100);
+  world.setBlock(base, REDSTONE_BLOCK);
+  rightClick(base, 1, OAK_DOOR_ITEM);
+  assert.ok(doorAt(base), "a door can stand on a redstone block");
+
+  for (const [name, id] of SEE_THROUGH_CUBES) {
+    base = arena(400, 100);
+    world.setBlock({ x: base.x - 1, y: base.y + 1, z: base.z }, id);
+    world.setBlock({ x: base.x - 1, y: base.y + 2, z: base.z }, id);
+    rightClick(base, 1, OAK_DOOR_ITEM);
+    assert.strictEqual(world.getBlockMetadata(above(base, 2)), 8, name + " is not a wall for the hinge");
+
+    base = arena(420, 100);
+    world.setBlock(base, id);
+    rightClick(base, 1, OAK_DOOR_ITEM);
+    assert.ok(!doorAt(base), "a door cannot stand on " + name);
+  }
+  console.log("ok walls for the hinge and floors for support follow separate vanilla rules (redstone block, TNT, glowstone, sea lantern)");
+
   console.log("ALL DOOR CHECKS PASS");
 }
 

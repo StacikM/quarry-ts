@@ -35,6 +35,10 @@ const OPEN = 4;
 const STAIRS = new Set([53, 67, 108, 109, 114, 128, 134, 135, 136, 156, 163, 164, 180]);
 const SLABS = new Set([44, 126, 182]); // single slabs (double slabs are full cubes)
 const FARMLAND = 60;
+// Full cubes whose material is see-through for gameplay rules (glass-like), so vanilla does not treat them as solid.
+const TRANSLUCENT_CUBES = new Set([46, 89, 169]); // TNT, glowstone, sea lantern
+// Full cubes that can power redstone: a wall for support, but not for the hinge rule.
+const POWER_BLOCKS = new Set([152]); // redstone block
 const HOPPER = 154;
 const SNOW_LAYER = 78;
 
@@ -131,10 +135,18 @@ export function removeOtherDoorHalf(server: MinecraftServer, pos: BlockPosition,
   server.setBlock(other, Block.Air, 0);
 }
 
-/** A plain full cube: stone, dirt, planks... Not stairs, slabs, farmland, glass or leaves. */
+/** An opaque full cube: stone, dirt, planks... Not stairs, slabs, farmland, glass, leaves or glowstone. */
+function isOpaqueFullCube(id: number): boolean {
+  return id !== Block.Air && lightOpacity(id) === 255 && !STAIRS.has(id) && !SLABS.has(id) && id !== FARMLAND && !TRANSLUCENT_CUBES.has(id);
+}
+
+/**
+ * Vanilla's "normal cube", used for the hinge: an opaque full cube that does not
+ * provide redstone power. (Floor support below deliberately does NOT have the power rule.)
+ */
 function isNormalCube(world: World, pos: BlockPosition): boolean {
   const id = world.getBlockId(pos);
-  return id !== Block.Air && lightOpacity(id) === 255 && !STAIRS.has(id) && !SLABS.has(id) && id !== FARMLAND;
+  return isOpaqueFullCube(id) && !POWER_BLOCKS.has(id);
 }
 
 /**
@@ -144,7 +156,7 @@ function isNormalCube(world: World, pos: BlockPosition): boolean {
 function hasSolidTopSurface(world: World, pos: BlockPosition): boolean {
   const id = world.getBlockId(pos);
   const meta = world.getBlockMetadata(pos);
-  if (isNormalCube(world, pos)) return true;
+  if (isOpaqueFullCube(id)) return true;
   if (STAIRS.has(id)) return (meta & 4) !== 0; // bit 4 = upside down
   if (SLABS.has(id)) return (meta & 8) !== 0; // bit 8 = top half
   return id === HOPPER || (id === SNOW_LAYER && meta === 7);
