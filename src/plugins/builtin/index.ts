@@ -9,7 +9,5 @@ import { chatFormatPlugin } from "./chatfmt";
  * Plugins that ship with the server. Add yours here:
  *   import { welcomePlugin } from "./welcome";
  *   export const builtinPlugins: Plugin[] = [welcomePlugin];
- *
- * (This folder is owned by ChatGPT, see claudeandchatgpt.txt.)
  */
 export const builtinPlugins: Plugin[] = [homePlugin, warpPlugin, protectPlugin, welcomePlugin, chatFormatPlugin];

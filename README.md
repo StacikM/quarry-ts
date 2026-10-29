@@ -16,7 +16,7 @@ npm start          # run the compiled code
 
 In Minecraft 1.8.9: Multiplayer, then Add Server, then `localhost`.
 
-**Before you play:** open [src/config.ts](src/config.ts) and put your Minecraft username in `ops`. Operators can use `/gamemode` and `/tp` and can build inside the spawn protection area. Everything else you may want to change is in that file too: the seed, the port, the MOTD, view distance, and whether the world is `"natural"` or `"flat"`.
+**Before you play:** create a file called `ops.json` in the folder you start the server from, containing your Minecraft username, like `["YourName"]`. Operators can use `/gamemode` and `/tp` and can build inside the spawn protection area. The file is ignored by git, so your name is never committed. Everything else you may want to change is in [src/config.ts](src/config.ts): the seed, the port, the MOTD, view distance, and whether the world is `"natural"` or `"flat"`.
 
 Server console commands: `save` writes the world to disk now, `stop` saves and shuts down, and anything else you type is sent to everyone as chat. If the world cannot be saved (disk full, folder not writable), `stop` keeps the server running and tells you; fix the problem and run `stop` again. `stop force` (or pressing Ctrl+C a second time) quits anyway and loses the unsaved changes.
 

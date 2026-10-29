@@ -64,7 +64,7 @@ module.exports = {
 };
 ```
 
-`opOnly` checks `player.isOp`, based on the case-insensitive names in `config.ops`. Omit it for a public command. `/help` lists public commands and hides operator commands from non-operators. These permissions do not authenticate usernames: this server currently runs in offline mode.
+`opOnly` checks `player.isOp`, based on the case-insensitive names in `ops.json` (loaded into `config.ops`). Omit it for a public command. `/help` lists public commands and hides operator commands from non-operators. These permissions do not authenticate usernames: this server currently runs in offline mode.
 
 ## Scheduler
 

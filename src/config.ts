@@ -1,4 +1,20 @@
+import fs from "node:fs";
+import path from "node:path";
 import { GameMode } from "./game/GameMode";
+
+/**
+ * Operators live in a file called ops.json next to where you start the server,
+ * e.g. ["YourMinecraftName"]. It is kept out of git, so your name is never
+ * committed. No file means no operators.
+ */
+function loadOperators(): string[] {
+  try {
+    const names: unknown = JSON.parse(fs.readFileSync(path.resolve("ops.json"), "utf8"));
+    return Array.isArray(names) ? names.filter((name): name is string => typeof name === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 /**
  * All the knobs you might want to turn live here.
@@ -16,8 +32,8 @@ export const config = {
 
   defaultGameMode: GameMode.Creative,
 
-  /** Operators (case-insensitive) can run commands marked opOnly. */
-  ops: ["Stani"] as string[],
+  /** Operators (case-insensitive) can run commands marked opOnly. Edit ops.json, not this file. */
+  ops: loadOperators(),
 
   /** How often changed chunks are written to disk (they are also saved when the server stops). */
   autosaveIntervalMs: 60_000,
