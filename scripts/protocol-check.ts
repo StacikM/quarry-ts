@@ -193,8 +193,8 @@ regression("dig status is VarInt, including a two-byte encoding of zero", () => 
   assert.equal(independent.data.params.status, 0);
   let broken = 0;
   const fakePlayer: any = { gameMode: 1, send() {}, server: {
-    world: { getBlockId: () => 1, getBlockMetadata: () => 0, setBlock: () => broken++ },
-    plugins: { events: new EventBus() }, broadcast() {},
+    world: { getBlockId: () => 1, getBlockMetadata: () => 0 },
+    setBlock: () => broken++, plugins: { events: new EventBus() }, broadcast() {},
   } };
   const reader = new PacketReader(nonMinimal);
   handlePlay({ player: fakePlayer } as any, reader.readVarInt(), reader);

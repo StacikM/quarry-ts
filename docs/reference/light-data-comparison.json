@@ -1,0 +1,1987 @@
+{
+  "baselineCommit": "f86987f",
+  "normalization": "minecraft-data filterLight 15 maps to engine opacity 255; other values unchanged",
+  "clientSha1": "3870888a6c3d349d3771a3e9d16c9bf5e076b908",
+  "blocks": [
+    {
+      "id": 0,
+      "name": "air",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 1,
+      "name": "stone",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 2,
+      "name": "grass",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 3,
+      "name": "dirt",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 4,
+      "name": "cobblestone",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 5,
+      "name": "planks",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 6,
+      "name": "sapling",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 7,
+      "name": "bedrock",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 8,
+      "name": "flowing_water",
+      "previousOpacity": 3,
+      "previousEmission": 0,
+      "dataFilterLight": 2,
+      "dataEmitLight": 0,
+      "opacity": 3,
+      "emission": 0
+    },
+    {
+      "id": 9,
+      "name": "water",
+      "previousOpacity": 3,
+      "previousEmission": 0,
+      "dataFilterLight": 2,
+      "dataEmitLight": 0,
+      "opacity": 3,
+      "emission": 0
+    },
+    {
+      "id": 10,
+      "name": "flowing_lava",
+      "previousOpacity": 0,
+      "previousEmission": 15,
+      "dataFilterLight": 0,
+      "dataEmitLight": 15,
+      "opacity": 0,
+      "emission": 15
+    },
+    {
+      "id": 11,
+      "name": "lava",
+      "previousOpacity": 0,
+      "previousEmission": 15,
+      "dataFilterLight": 0,
+      "dataEmitLight": 15,
+      "opacity": 0,
+      "emission": 15
+    },
+    {
+      "id": 12,
+      "name": "sand",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 13,
+      "name": "gravel",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 14,
+      "name": "gold_ore",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 15,
+      "name": "iron_ore",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 16,
+      "name": "coal_ore",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 17,
+      "name": "log",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 18,
+      "name": "leaves",
+      "previousOpacity": 1,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 1,
+      "emission": 0
+    },
+    {
+      "id": 19,
+      "name": "sponge",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 20,
+      "name": "glass",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 21,
+      "name": "lapis_ore",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 22,
+      "name": "lapis_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 23,
+      "name": "dispenser",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 24,
+      "name": "sandstone",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 25,
+      "name": "noteblock",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 26,
+      "name": "bed",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 27,
+      "name": "golden_rail",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 28,
+      "name": "detector_rail",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 29,
+      "name": "sticky_piston",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 30,
+      "name": "web",
+      "previousOpacity": 1,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 1,
+      "emission": 0
+    },
+    {
+      "id": 31,
+      "name": "tallgrass",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 32,
+      "name": "deadbush",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 33,
+      "name": "piston",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 34,
+      "name": "piston_head",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 35,
+      "name": "wool",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 36,
+      "name": "piston_extension",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 37,
+      "name": "yellow_flower",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 38,
+      "name": "red_flower",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 39,
+      "name": "brown_mushroom",
+      "previousOpacity": 0,
+      "previousEmission": 1,
+      "dataFilterLight": 15,
+      "dataEmitLight": 1,
+      "opacity": 0,
+      "emission": 1
+    },
+    {
+      "id": 40,
+      "name": "red_mushroom",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 1,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 41,
+      "name": "gold_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 42,
+      "name": "iron_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 43,
+      "name": "double_stone_slab",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 44,
+      "name": "stone_slab",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 45,
+      "name": "brick_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 46,
+      "name": "tnt",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 47,
+      "name": "bookshelf",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 48,
+      "name": "mossy_cobblestone",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 49,
+      "name": "obsidian",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 50,
+      "name": "torch",
+      "previousOpacity": 0,
+      "previousEmission": 14,
+      "dataFilterLight": 0,
+      "dataEmitLight": 14,
+      "opacity": 0,
+      "emission": 14
+    },
+    {
+      "id": 51,
+      "name": "fire",
+      "previousOpacity": 0,
+      "previousEmission": 15,
+      "dataFilterLight": 0,
+      "dataEmitLight": 15,
+      "opacity": 0,
+      "emission": 15
+    },
+    {
+      "id": 52,
+      "name": "mob_spawner",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 53,
+      "name": "oak_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 54,
+      "name": "chest",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 55,
+      "name": "redstone_wire",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 56,
+      "name": "diamond_ore",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 57,
+      "name": "diamond_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 58,
+      "name": "crafting_table",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 59,
+      "name": "wheat",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 60,
+      "name": "farmland",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 61,
+      "name": "furnace",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 13,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 62,
+      "name": "lit_furnace",
+      "previousOpacity": 255,
+      "previousEmission": 13,
+      "dataFilterLight": 0,
+      "dataEmitLight": 13,
+      "opacity": 255,
+      "emission": 13
+    },
+    {
+      "id": 63,
+      "name": "standing_sign",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 64,
+      "name": "wooden_door",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 65,
+      "name": "ladder",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 66,
+      "name": "rail",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 67,
+      "name": "stone_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 68,
+      "name": "wall_sign",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 69,
+      "name": "lever",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 70,
+      "name": "stone_pressure_plate",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 71,
+      "name": "iron_door",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 72,
+      "name": "wooden_pressure_plate",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 73,
+      "name": "redstone_ore",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 9,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 74,
+      "name": "lit_redstone_ore",
+      "previousOpacity": 255,
+      "previousEmission": 9,
+      "dataFilterLight": 0,
+      "dataEmitLight": 9,
+      "opacity": 255,
+      "emission": 9
+    },
+    {
+      "id": 75,
+      "name": "unlit_redstone_torch",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 7,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 76,
+      "name": "redstone_torch",
+      "previousOpacity": 0,
+      "previousEmission": 7,
+      "dataFilterLight": 0,
+      "dataEmitLight": 7,
+      "opacity": 0,
+      "emission": 7
+    },
+    {
+      "id": 77,
+      "name": "stone_button",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 78,
+      "name": "snow_layer",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 79,
+      "name": "ice",
+      "previousOpacity": 3,
+      "previousEmission": 0,
+      "dataFilterLight": 2,
+      "dataEmitLight": 0,
+      "opacity": 3,
+      "emission": 0
+    },
+    {
+      "id": 80,
+      "name": "snow",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 81,
+      "name": "cactus",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 82,
+      "name": "clay",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 83,
+      "name": "reeds",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 84,
+      "name": "jukebox",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 85,
+      "name": "fence",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 86,
+      "name": "pumpkin",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 87,
+      "name": "netherrack",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 88,
+      "name": "soul_sand",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 89,
+      "name": "glowstone",
+      "previousOpacity": 255,
+      "previousEmission": 15,
+      "dataFilterLight": 0,
+      "dataEmitLight": 15,
+      "opacity": 255,
+      "emission": 15
+    },
+    {
+      "id": 90,
+      "name": "portal",
+      "previousOpacity": 0,
+      "previousEmission": 11,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 11
+    },
+    {
+      "id": 91,
+      "name": "lit_pumpkin",
+      "previousOpacity": 255,
+      "previousEmission": 15,
+      "dataFilterLight": 15,
+      "dataEmitLight": 15,
+      "opacity": 255,
+      "emission": 15
+    },
+    {
+      "id": 92,
+      "name": "cake",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 93,
+      "name": "unpowered_repeater",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 94,
+      "name": "powered_repeater",
+      "previousOpacity": 0,
+      "previousEmission": 9,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 95,
+      "name": "stained_glass",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 96,
+      "name": "trapdoor",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 97,
+      "name": "monster_egg",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 98,
+      "name": "stonebrick",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 99,
+      "name": "brown_mushroom_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 100,
+      "name": "red_mushroom_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 101,
+      "name": "iron_bars",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 102,
+      "name": "glass_pane",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 103,
+      "name": "melon_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 104,
+      "name": "pumpkin_stem",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 105,
+      "name": "melon_stem",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 106,
+      "name": "vine",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 107,
+      "name": "fence_gate",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 108,
+      "name": "brick_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 109,
+      "name": "stone_brick_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 110,
+      "name": "mycelium",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 111,
+      "name": "waterlily",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 112,
+      "name": "nether_brick",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 113,
+      "name": "nether_brick_fence",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 114,
+      "name": "nether_brick_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 115,
+      "name": "nether_wart",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 116,
+      "name": "enchanting_table",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 117,
+      "name": "brewing_stand",
+      "previousOpacity": 0,
+      "previousEmission": 1,
+      "dataFilterLight": 0,
+      "dataEmitLight": 1,
+      "opacity": 0,
+      "emission": 1
+    },
+    {
+      "id": 118,
+      "name": "cauldron",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 119,
+      "name": "end_portal",
+      "previousOpacity": 0,
+      "previousEmission": 15,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 15
+    },
+    {
+      "id": 120,
+      "name": "end_portal_frame",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 1,
+      "opacity": 0,
+      "emission": 1
+    },
+    {
+      "id": 121,
+      "name": "end_stone",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 122,
+      "name": "dragon_egg",
+      "previousOpacity": 0,
+      "previousEmission": 1,
+      "dataFilterLight": 0,
+      "dataEmitLight": 1,
+      "opacity": 0,
+      "emission": 1
+    },
+    {
+      "id": 123,
+      "name": "redstone_lamp",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 15,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 124,
+      "name": "lit_redstone_lamp",
+      "previousOpacity": 255,
+      "previousEmission": 15,
+      "dataFilterLight": 0,
+      "dataEmitLight": 15,
+      "opacity": 255,
+      "emission": 15
+    },
+    {
+      "id": 125,
+      "name": "double_wooden_slab",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 126,
+      "name": "wooden_slab",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 127,
+      "name": "cocoa",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 128,
+      "name": "sandstone_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 129,
+      "name": "emerald_ore",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 130,
+      "name": "ender_chest",
+      "previousOpacity": 255,
+      "previousEmission": 7,
+      "dataFilterLight": 0,
+      "dataEmitLight": 7,
+      "opacity": 0,
+      "emission": 7
+    },
+    {
+      "id": 131,
+      "name": "tripwire_hook",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 132,
+      "name": "tripwire",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 133,
+      "name": "emerald_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 134,
+      "name": "spruce_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 135,
+      "name": "birch_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 136,
+      "name": "jungle_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 137,
+      "name": "command_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 138,
+      "name": "beacon",
+      "previousOpacity": 255,
+      "previousEmission": 15,
+      "dataFilterLight": 0,
+      "dataEmitLight": 15,
+      "opacity": 0,
+      "emission": 15
+    },
+    {
+      "id": 139,
+      "name": "cobblestone_wall",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 140,
+      "name": "flower_pot",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 141,
+      "name": "carrots",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 142,
+      "name": "potatoes",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 143,
+      "name": "wooden_button",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 144,
+      "name": "skull",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 145,
+      "name": "anvil",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 146,
+      "name": "trapped_chest",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 147,
+      "name": "light_weighted_pressure_plate",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 148,
+      "name": "heavy_weighted_pressure_plate",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 149,
+      "name": "unpowered_comparator",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 150,
+      "name": "powered_comparator",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 9
+    },
+    {
+      "id": 151,
+      "name": "daylight_detector",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 152,
+      "name": "redstone_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 153,
+      "name": "quartz_ore",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 154,
+      "name": "hopper",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 155,
+      "name": "quartz_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 156,
+      "name": "quartz_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 157,
+      "name": "activator_rail",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 158,
+      "name": "dropper",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 159,
+      "name": "stained_hardened_clay",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 160,
+      "name": "stained_glass_pane",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 161,
+      "name": "leaves2",
+      "previousOpacity": 1,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 1,
+      "emission": 0
+    },
+    {
+      "id": 162,
+      "name": "log2",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 163,
+      "name": "acacia_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 164,
+      "name": "dark_oak_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 165,
+      "name": "slime",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 166,
+      "name": "barrier",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 167,
+      "name": "iron_trapdoor",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 168,
+      "name": "prismarine",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 169,
+      "name": "sea_lantern",
+      "previousOpacity": 255,
+      "previousEmission": 15,
+      "dataFilterLight": 0,
+      "dataEmitLight": 15,
+      "opacity": 255,
+      "emission": 15
+    },
+    {
+      "id": 170,
+      "name": "hay_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 171,
+      "name": "carpet",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 172,
+      "name": "hardened_clay",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 173,
+      "name": "coal_block",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 174,
+      "name": "packed_ice",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 175,
+      "name": "double_plant",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 176,
+      "name": "standing_banner",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 177,
+      "name": "wall_banner",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 178,
+      "name": "daylight_detector_inverted",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 179,
+      "name": "red_sandstone",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 180,
+      "name": "red_sandstone_stairs",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 15,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 181,
+      "name": "double_stone_slab2",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 182,
+      "name": "stone_slab2",
+      "previousOpacity": 255,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 255,
+      "emission": 0
+    },
+    {
+      "id": 183,
+      "name": "spruce_fence_gate",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 184,
+      "name": "birch_fence_gate",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 185,
+      "name": "jungle_fence_gate",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 186,
+      "name": "dark_oak_fence_gate",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 187,
+      "name": "acacia_fence_gate",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 188,
+      "name": "spruce_fence",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 189,
+      "name": "birch_fence",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 190,
+      "name": "jungle_fence",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 191,
+      "name": "dark_oak_fence",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 192,
+      "name": "acacia_fence",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 193,
+      "name": "spruce_door",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 194,
+      "name": "birch_door",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 195,
+      "name": "jungle_door",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 196,
+      "name": "acacia_door",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    },
+    {
+      "id": 197,
+      "name": "dark_oak_door",
+      "previousOpacity": 0,
+      "previousEmission": 0,
+      "dataFilterLight": 0,
+      "dataEmitLight": 0,
+      "opacity": 0,
+      "emission": 0
+    }
+  ]
+}
