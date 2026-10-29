@@ -25,7 +25,7 @@ const symbols: Record<number, string> = {
   [Block.TallGrass]: '"', [Block.DeadBush]: "d", [Block.Dandelion]: "f", [Block.Poppy]: "F",
   [Block.Cactus]: "C", [Block.SugarCane]: "|",
 };
-const biomeSymbols: Record<number, string> = { 0: "~", 1: ".", 2: "d", 3: "^", 4: "f", 12: "s", 16: ":" };
+const biomeSymbols: Record<number, string> = { 0: "~", 1: ".", 2: "d", 3: "^", 4: "f", 7: "r", 12: "s", 16: ":" };
 const startX = Math.floor(centerX) - 48, startZ = Math.floor(centerZ) - 24;
 console.log(`Seed ${seed}; center ${centerX},${centerZ}. Top blocks, 96 x 48:`);
 console.log('G grass, * leaves, T logs, ~ water, : sand, ; gravel, s snow, # stone, " tall grass, f/F flowers, d bush, C cactus, | cane');
@@ -38,7 +38,7 @@ for (let z = startZ; z < startZ + 48; z++) {
   }
   console.log(row);
 }
-console.log("Biome overview (each character = 16 blocks): ~ ocean, . plains, d desert, ^ mountains, f forest, s snow, : beach");
+console.log("Biome overview (each character = 16 blocks): ~ ocean, . plains, d desert, ^ mountains, f forest, r river, s snow, : beach");
 for (let dz = -12; dz < 12; dz++) {
   let row = "";
   for (let dx = -24; dx < 24; dx++) row += biomeSymbols[generator.biomeAt(Math.floor(centerX) + dx * 16, Math.floor(centerZ) + dz * 16)] ?? "?";

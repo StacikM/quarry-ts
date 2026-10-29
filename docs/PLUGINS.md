@@ -34,7 +34,7 @@ Subscribe with `api.on(eventName, handler)`. Handlers run synchronously in regis
 | `blockBreak` | `player`, `position: {x,y,z}`, `blockId`, `cancelled` | Before removing the block. Cancel to keep it; the server restores the client's predicted block. |
 | `blockPlace` | `player`, `position: {x,y,z}`, `blockId`, `metadata`, `cancelled` | Before placing at the target position, which is next to the clicked face. Cancel to deny placement and correct the client. |
 
-Block positions use integer world coordinates. Treat block event positions, IDs and metadata as context; the supported control is cancellation. In particular, editing placement `blockId` or `metadata` does not currently change what the core places. Use `api.server.world.setBlock(position, id, metadata)` for a persistent world edit; it does not itself send a block update to clients. Terrain generators' `chunk.setBlock()` is deliberately unsaved.
+Block positions use integer world coordinates. Treat block event positions, IDs and metadata as context; the supported control is cancellation. In particular, editing placement `blockId` or `metadata` does not currently change what the core places. Use `api.server.setBlock(position, id, metadata)` to persist a world edit and send it to nearby clients. The lower-level `api.server.world.setBlock()` persists the edit without sending a block update. Terrain generators' `chunk.setBlock()` is deliberately unsaved.
 
 Keep coordinates for later tasks rather than holding a `Chunk`: autosave may unload an unneeded chunk, leaving a saved reference detached. Resolve the world/chunk again when the task runs.
 

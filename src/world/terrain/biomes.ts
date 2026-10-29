@@ -1,6 +1,6 @@
 import { PerlinNoise } from "./noise";
 
-export const Biome = { Ocean: 0, Plains: 1, Desert: 2, Mountains: 3, Forest: 4, Snow: 12, Beach: 16 } as const;
+export const Biome = { Ocean: 0, Plains: 1, Desert: 2, Mountains: 3, Forest: 4, River: 7, Snow: 12, Beach: 16 } as const;
 
 export class BiomeSampler {
   private readonly temperature: PerlinNoise;

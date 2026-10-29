@@ -8,17 +8,20 @@ import { CaveSampler } from "./caves";
 import { placeOres } from "./ores";
 import { placeTrees } from "./trees";
 import { decorate } from "./decoration";
+import { RiverSampler } from "./rivers";
 
 export class NaturalGenerator implements TerrainGenerator {
   readonly name = "natural";
   private readonly elevation: PerlinNoise;
   private readonly biomes: BiomeSampler;
   private readonly caves: CaveSampler;
+  private readonly rivers: RiverSampler;
 
   constructor(private readonly seed: number) {
     this.elevation = new PerlinNoise(seed);
     this.biomes = new BiomeSampler(seed);
     this.caves = new CaveSampler(seed);
+    this.rivers = new RiverSampler(seed);
   }
 
   /** Sampling world coordinates makes adjacent chunks share one heightmap. */
@@ -32,10 +35,11 @@ export class NaturalGenerator implements TerrainGenerator {
     // Keep the initial spawn on land for every seed, with a smooth transition.
     const t = Math.max(0, Math.min(1, (Math.hypot(x, z) - 16) / 48));
     const blend = t * t * (3 - 2 * t);
-    return Math.floor(72 + (natural - 72) * blend);
+    return this.rivers.carveHeight(x, z, Math.floor(72 + (natural - 72) * blend));
   }
 
   biomeAt(x: number, z: number, height = this.heightAt(x, z)): number {
+    if (height < 62 && height >= 57 && this.rivers.strengthAt(x, z) > 0.5) return Biome.River;
     if (height >= 60 && height <= 63) {
       // Restrict beaches to columns close to an actual body of water.
       for (const [dx, dz] of [[-3, 0], [3, 0], [0, -3], [0, 3]]) {
@@ -51,13 +55,17 @@ export class NaturalGenerator implements TerrainGenerator {
         const worldX = chunk.x * 16 + x;
         const worldZ = chunk.z * 16 + z;
         const height = this.heightAt(worldX, worldZ);
+        // Seal caves under neighboring banks too, so river water cannot meet a cave sideways.
+        const caveSurface = Math.min(height,
+          this.heightAt(worldX - 1, worldZ), this.heightAt(worldX + 1, worldZ),
+          this.heightAt(worldX, worldZ - 1), this.heightAt(worldX, worldZ + 1));
         const biome = this.biomeAt(worldX, worldZ, height);
         chunk.setBiome(x, z, biome);
         const bedrock = hash2(this.seed, worldX, worldZ) >>> 0;
         let surface: number = Block.Grass;
         let soil: number = Block.Dirt;
         if (biome === Biome.Desert) surface = soil = Block.Sand;
-        else if (biome === Biome.Beach || biome === Biome.Ocean) {
+        else if (biome === Biome.Beach || biome === Biome.Ocean || biome === Biome.River) {
           const material = bedrock % 5;
           surface = soil = material === 0 ? Block.Gravel : material === 1 && biome === Biome.Ocean ? Block.Dirt : Block.Sand;
         } else if (biome === Biome.Mountains && height > 94) surface = soil = Block.Stone;
@@ -69,7 +77,7 @@ export class NaturalGenerator implements TerrainGenerator {
             block = surface;
           } else if (y >= height - 3) {
             block = soil;
-          } else if (this.caves.isCave(worldX, y, worldZ, height)) {
+          } else if (this.caves.isCave(worldX, y, worldZ, caveSurface)) {
             block = y < 10 ? Block.Lava : Block.Air;
           }
           chunk.setBlock(x, y, z, block);

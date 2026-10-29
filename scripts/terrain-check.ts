@@ -5,6 +5,7 @@ import { Chunk } from "../src/world/Chunk";
 import { Block } from "../src/world/blocks";
 import { NaturalGenerator } from "../src/world/terrain/NaturalGenerator";
 import { PerlinNoise } from "../src/world/terrain/noise";
+import { RiverSampler } from "../src/world/terrain/rivers";
 
 const generator = new NaturalGenerator(1337);
 function generate(x: number, z: number): Chunk {
@@ -39,6 +40,8 @@ for (let seed = -50; seed < 50; seed++) {
 const counts = new Map<number, number>();
 const treeSpecies = new Set<number>();
 const biomeCounts = new Map<number, number>();
+let riverBorderColumns = 0;
+const borderChunks = new Map<string, Chunk>();
 const oreLimits = new Map<number, number>([[16, 127], [15, 63], [14, 31], [73, 15], [56, 15], [21, 31]]);
 for (let cz = -32; cz <= 32; cz += 4) for (let cx = -32; cx <= 32; cx += 4) {
   const chunk = generate(cx, cz);
@@ -46,6 +49,25 @@ for (let cz = -32; cz <= 32; cz += 4) for (let cx = -32; cx <= 32; cx += 4) {
     const height = generator.heightAt(cx * 16 + x, cz * 16 + z);
     const biome = chunk.getBiome(x, z);
     biomeCounts.set(biome, (biomeCounts.get(biome) ?? 0) + 1);
+    if (biome === 7) {
+      assert(height >= 57 && height < 62);
+      assert([Block.Sand, Block.Gravel].includes(chunk.getBlockId(x, height, z) as 12 | 13));
+      if (x === 0 || x === 15 || z === 0 || z === 15) riverBorderColumns++;
+      // Water cannot contact a cave through an adjacent bank, even across chunk edges.
+      for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const wx = cx * 16 + x + dx, wz = cz * 16 + z + dz;
+        const bankHeight = generator.heightAt(wx, wz);
+        if (bankHeight <= height) continue;
+        const bx = Math.floor(wx / 16), bz = Math.floor(wz / 16), key = `${bx},${bz}`;
+        let neighbor = bx === cx && bz === cz ? chunk : borderChunks.get(key);
+        if (!neighbor) { neighbor = generate(bx, bz); borderChunks.set(key, neighbor); }
+        for (let y = height + 1; y <= Math.min(62, bankHeight); y++) {
+          const id = neighbor.getBlockId(((wx % 16) + 16) % 16, y, ((wz % 16) + 16) % 16);
+          assert.notEqual(id, Block.Air, "river bank must separate water from cave air");
+          assert.notEqual(id, Block.Lava);
+        }
+      }
+    }
     assert.equal(chunk.getBlockId(x, 0, z), Block.Bedrock);
     for (let y = height - 4; y <= height; y++) {
       assert.notEqual(chunk.getBlockId(x, y, z), Block.Air, "sealed surface");
@@ -85,7 +107,8 @@ for (let cz = -32; cz <= 32; cz += 4) for (let cx = -32; cx <= 32; cx += 4) {
   }
 }
 for (const id of [Block.Log, Block.Leaves, Block.Lava, Block.Snow, ...oreLimits.keys()]) assert((counts.get(id) ?? 0) > 0, `missing block ${id}`);
-for (const id of [0, 1, 2, 3, 4, 12, 16]) assert((biomeCounts.get(id) ?? 0) > 0, `missing biome ${id}`);
+for (const id of [0, 1, 2, 3, 4, 7, 12, 16]) assert((biomeCounts.get(id) ?? 0) > 0, `missing biome ${id}`);
+assert(riverBorderColumns > 0, "river channels cross chunk borders");
 for (const id of [Block.TallGrass, Block.Dandelion, Block.Poppy, Block.DeadBush, Block.Cactus, Block.SugarCane]) assert((counts.get(id) ?? 0) > 0, `missing decoration ${id}`);
 assert.deepEqual([...treeSpecies].sort(), [0, 1, 2], "oak, spruce and birch metadata");
 for (let z = -1; z <= 1; z++) for (let x = -1; x <= 1; x++) {
@@ -97,6 +120,20 @@ const area: [number, number][] = [];
 for (let z = -2; z <= 2; z++) for (let x = -2; x <= 2; x++) area.push([x, z]);
 const forward = area.map(([x, z]) => generate(x, z).serialize().data);
 for (let i = area.length - 1; i >= 0; i--) assert.deepEqual(generate(...area[i]).serialize().data, forward[i]);
+const riverArea = area.map(([x, z]): [number, number] => [x + 12, z + 8]);
+const riverForward = riverArea.map(([x, z]) => generate(x, z).serialize().data);
+for (let i = riverArea.length - 1; i >= 0; i--) assert.deepEqual(generate(...riverArea[i]).serialize().data, riverForward[i]);
+const rivers = new RiverSampler(1337);
+let channelSamples = 0;
+for (let z = -512; z <= 512; z += 8) for (let x = -512; x <= 512; x += 8) {
+  assert(rivers.carveHeight(x, z, 50) <= 50, "rivers never raise an ocean floor");
+  if (rivers.strengthAt(x, z) > 0.999) {
+    const bed = rivers.carveHeight(x, z, 90);
+    assert(bed >= 57 && bed <= 60, "full channel bed depth");
+    channelSamples++;
+  }
+}
+assert(channelSamples > 0);
 const noise = new PerlinNoise(1337);
 for (let i = -1000; i <= 1000; i++) {
   const x = i / 17, y = i / 31, z = -i / 23;
