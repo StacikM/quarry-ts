@@ -86,7 +86,8 @@ export class Player {
         wanted.add(key);
 
         if (!this.loadedChunks.has(key)) {
-          this.send(chunkData(this.server.world.getChunk(chunkX, chunkZ)));
+          const chunk = this.server.world.getChunk(chunkX, chunkZ);
+          this.send(chunkData(chunk, this.server.world.getLight(chunk)));
           this.loadedChunks.add(key);
         }
       }

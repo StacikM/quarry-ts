@@ -6,7 +6,8 @@
  * flat worlds are cheap to send.
  */
 
-import { isTransparent } from "./blocks";
+import { OPACITY_TABLE } from "./lightData";
+import { computeLight, packLight, type ChunkLight } from "./lighting";
 
 const SECTION_COUNT = 16;
 const BLOCKS_PER_SECTION = 16 * 16 * 16; // 4096
@@ -63,6 +64,8 @@ export class Chunk {
     this.blocks[index] = state;
     this.edits.set(index, state);
     this.dirty = true;
+    this.heightMap = null;
+    this.light = null;
   }
 
   getEdits(): ReadonlyMap<number, number> {
@@ -94,43 +97,42 @@ export class Chunk {
     return true;
   }
 
-  /** The y of the highest block in each column that blocks sunlight (-1 if none). */
-  private findSkyHeights(): Int16Array {
-    const heights = new Int16Array(256).fill(-1);
+  /**
+   * The chunk's blocks as stored: (blockId << 4) | metadata, indexed (y << 8) | (z << 4) | x.
+   * Read-only: change blocks with setBlock / editBlock.
+   */
+  getRawBlocks(): Readonly<Uint16Array> {
+    return this.blocks;
+  }
+
+  private heightMap: Int16Array | null = null;
+
+  /**
+   * For each column (index (z << 4) | x): the y just above the highest block
+   * that stops or dims light. Everything at or above that y sees the open sky.
+   * Cactus, glass, plants and air do not count; leaves and water do.
+   */
+  getHeightMap(): Int16Array {
+    if (this.heightMap) return this.heightMap;
+
+    const heights = new Int16Array(256);
     for (let column = 0; column < 256; column++) {
-      for (let y = 255; y >= 0; y--) {
-        if (!isTransparent(this.blocks[(y << 8) | column] >> 4)) {
-          heights[column] = y;
-          break;
-        }
-      }
+      let y = 255;
+      while (y >= 0 && OPACITY_TABLE[this.blocks[(y << 8) | column] >> 4] === 0) y--;
+      heights[column] = y + 1;
     }
-    return heights;
+    return (this.heightMap = heights);
   }
 
   /**
-   * Simple sunlight: a block is fully lit (15) if nothing opaque is above it,
-   * otherwise it is dark (0). Real Minecraft also spreads light sideways, so
-   * cave mouths look a bit harsh here, but caves and overhangs do get dark.
-   *
-   * Light is stored as 4 bits per block: two blocks per byte, the block with
-   * the even index in the low half.
+   * Light for this chunk, worked out by World.getLight() (it needs the
+   * neighbouring chunks) and kept here until a block changes.
    */
-  private buildSkyLight(sections: number[]): Buffer {
-    const heights = this.findSkyHeights();
-    const light = Buffer.alloc((sections.length * BLOCKS_PER_SECTION) / 2);
-    let nibble = 0;
+  light: ChunkLight | null = null;
 
-    for (const s of sections) {
-      for (let i = 0; i < BLOCKS_PER_SECTION; i++, nibble++) {
-        const y = s * 16 + (i >> 8);
-        const column = i & 0xff;
-        if (y > heights[column]) {
-          light[nibble >> 1] |= (nibble & 1) === 0 ? 0x0f : 0xf0;
-        }
-      }
-    }
-    return light;
+  /** Forget the stored light so it is recomputed next time it is needed. */
+  invalidateLight(): void {
+    this.light = null;
   }
 
   /**
@@ -142,7 +144,11 @@ export class Chunk {
    *   3. sky light of every included section    (half a byte per block)
    *   4. 256 biome IDs (one per x/z column)
    */
-  serialize(): { sectionMask: number; data: Buffer } {
+  serialize(light?: ChunkLight): { sectionMask: number; data: Buffer } {
+    // Callers that don't have the neighbouring chunks (tests, tools) get light
+    // computed from this chunk alone. The server passes World.getLight(chunk).
+    const lit = light ?? computeLightAlone(this);
+
     const sections: number[] = [];
     for (let s = 0; s < SECTION_COUNT; s++) {
       if (!this.isSectionEmpty(s)) sections.push(s);
@@ -157,9 +163,8 @@ export class Chunk {
       }
     }
 
-    // We have no light sources, so block light is 0 everywhere.
-    const blockLight = Buffer.alloc(sections.length * BLOCKS_PER_SECTION / 2, 0x00);
-    const skyLight = this.buildSkyLight(sections);
+    const blockLight = packLight(lit.block, sections);
+    const skyLight = packLight(lit.sky, sections);
     const biomes = Buffer.from(this.biomes);
 
     let sectionMask = 0;
@@ -167,4 +172,8 @@ export class Chunk {
 
     return { sectionMask, data: Buffer.concat([blockData, blockLight, skyLight, biomes]) };
   }
+}
+
+function computeLightAlone(chunk: Chunk): ChunkLight {
+  return computeLight(chunk.getRawBlocks() as Uint16Array, chunk.getHeightMap());
 }

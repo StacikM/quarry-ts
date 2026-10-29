@@ -4,6 +4,15 @@ import type { Player } from "../../game/Player";
 import { PlayIn } from "../packetIds";
 import { animation, blockChange, entityHeadLook, entityTeleport } from "../clientbound";
 import { runCommand } from "../../game/commands";
+import {
+  DOOR_ITEM_TO_BLOCK,
+  canOpenByHand,
+  isDoorBlock,
+  placeDoor,
+  planDoor,
+  removeOtherDoorHalf,
+  toggleDoor,
+} from "../../game/doors";
 import { GameMode } from "../../game/GameMode";
 import { FACE_OFFSETS, type BlockPosition } from "../../world/BlockPosition";
 import { Block, MAX_BLOCK_ID } from "../../world/blocks";
@@ -138,7 +147,7 @@ function onPlayerMoved(player: Player, from?: { x: number; y: number; z: number 
  * In creative, blocks break instantly, so the client only sends 0.
  */
 function handleDigging(player: Player, reader: PacketReader): void {
-  const status = reader.readByte();
+  const status = reader.readVarInt(); // a VarInt in protocol 47 (a plain byte for values 0-5, so real clients look the same)
   const pos = reader.readPosition();
   reader.readByte(); // which face was hit
 
@@ -147,15 +156,18 @@ function handleDigging(player: Player, reader: PacketReader): void {
 
   const world = player.server.world;
   const blockId = world.getBlockId(pos);
+  const metadata = world.getBlockMetadata(pos);
   const event = player.server.plugins.events.emit("blockBreak", { player, position: pos, blockId, cancelled: false });
   if (event.cancelled) {
     // The client already removed the block on its screen; put it back.
-    player.send(blockChange(pos, blockId, world.getBlockMetadata(pos)));
+    player.send(blockChange(pos, blockId, metadata));
     return;
   }
 
-  world.setBlock(pos, Block.Air);
-  player.server.broadcast(blockChange(pos, Block.Air, 0));
+  player.server.setBlock(pos, Block.Air);
+  if (isDoorBlock(blockId)) {
+    removeOtherDoorHalf(player.server, pos, blockId, metadata); // a door is two blocks: take both
+  }
 }
 
 function handleBlockPlacement(player: Player, reader: PacketReader): void {
@@ -167,10 +179,31 @@ function handleBlockPlacement(player: Player, reader: PacketReader): void {
   // Face -1 (255) means "used the item in the air", like eating. Not a placement.
   const offset = FACE_OFFSETS[face];
   if (!offset) return;
-  if (player.gameMode === GameMode.Spectator || player.gameMode === GameMode.Adventure) return;
+  if (player.gameMode === GameMode.Spectator) return;
+
+  const world = player.server.world;
+
+  // Right-clicking a door opens or closes it (also in adventure mode), instead of placing anything.
+  if (isInWorld(clicked) && isDoorBlock(world.getBlockId(clicked))) {
+    if (canOpenByHand(world.getBlockId(clicked))) {
+      toggleDoor(player.server, clicked);
+    } else {
+      player.send(blockChange(clicked, world.getBlockId(clicked), world.getBlockMetadata(clicked)));
+    }
+    return;
+  }
+
+  if (player.gameMode === GameMode.Adventure) return;
 
   const target: BlockPosition = { x: clicked.x + offset.x, y: clicked.y + offset.y, z: clicked.z + offset.z };
-  const world = player.server.world;
+
+  // Doors are items (id above 255) that place a two-block-tall block.
+  const doorBlock = DOOR_ITEM_TO_BLOCK[item.itemId];
+  if (doorBlock !== undefined) {
+    placeDoorFromItem(player, clicked, face, target, doorBlock);
+    return;
+  }
+
   const isBlock = item.itemId > 0 && item.itemId <= MAX_BLOCK_ID;
 
   if (!isBlock || !isInWorld(target) || world.getBlockId(target) !== Block.Air) {
@@ -195,8 +228,44 @@ function handleBlockPlacement(player: Player, reader: PacketReader): void {
     return;
   }
 
-  world.setBlock(target, item.itemId, metadata);
-  player.server.broadcast(blockChange(target, item.itemId, metadata));
+  player.server.setBlock(target, item.itemId, metadata);
+}
+
+/** Doors can only be placed on top of a block (face 1), and need room for both halves. */
+function placeDoorFromItem(player: Player, clicked: BlockPosition, face: number, target: BlockPosition, doorBlock: number): void {
+  const world = player.server.world;
+  const up = { x: target.x, y: target.y + 1, z: target.z };
+
+  // Tell the client what is really there, undoing any door it drew while predicting.
+  const resync = (): void => {
+    for (const pos of [target, up]) {
+      if (isInWorld(pos)) player.send(blockChange(pos, world.getBlockId(pos), world.getBlockMetadata(pos)));
+    }
+  };
+
+  // Placing onto tall grass puts the door where the grass was, not above it.
+  const clickedId = world.getBlockId(clicked);
+  const base = clickedId === 31 || clickedId === 32 ? clicked : target;
+
+  const plan = face === 1 ? planDoor(world, base, doorBlock, player.yaw) : null;
+  if (!plan) {
+    resync();
+    return;
+  }
+
+  const event = player.server.plugins.events.emit("blockPlace", {
+    player,
+    position: plan.position,
+    blockId: doorBlock,
+    metadata: plan.lowerMeta,
+    cancelled: false,
+  });
+  if (event.cancelled) {
+    resync();
+    return;
+  }
+
+  placeDoor(player.server, plan);
 }
 
 function isInWorld(pos: BlockPosition): boolean {

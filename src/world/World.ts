@@ -1,4 +1,5 @@
 import { Chunk } from "./Chunk";
+import { computeLight, type ChunkLight } from "./lighting";
 import { Block } from "./blocks";
 import type { TerrainGenerator } from "./TerrainGenerator";
 import type { BlockPosition } from "./BlockPosition";
@@ -59,6 +60,33 @@ export class World {
   setBlock(pos: BlockPosition, blockId: number, metadata = 0): void {
     if (pos.y < 0 || pos.y > 255) return;
     this.getChunk(pos.x >> 4, pos.z >> 4).editBlock(pos.x & 15, pos.y, pos.z & 15, blockId, metadata);
+
+    // Light in a neighbouring chunk depends on this chunk's column heights near the border.
+    const localX = pos.x & 15;
+    const localZ = pos.z & 15;
+    const chunkX = pos.x >> 4;
+    const chunkZ = pos.z >> 4;
+    if (localX === 0) this.chunks.get(`${chunkX - 1},${chunkZ}`)?.invalidateLight();
+    if (localX === 15) this.chunks.get(`${chunkX + 1},${chunkZ}`)?.invalidateLight();
+    if (localZ === 0) this.chunks.get(`${chunkX},${chunkZ - 1}`)?.invalidateLight();
+    if (localZ === 15) this.chunks.get(`${chunkX},${chunkZ + 1}`)?.invalidateLight();
+  }
+
+  /**
+   * Sky and block light for a chunk. It is computed once and kept until a
+   * block in (or right next to) the chunk changes.
+   */
+  getLight(chunk: Chunk): ChunkLight {
+    if (chunk.light) return chunk.light;
+
+    const heightsAt = (dx: number, dz: number) => this.getChunk(chunk.x + dx, chunk.z + dz).getHeightMap();
+    chunk.light = computeLight(chunk.getRawBlocks() as Uint16Array, chunk.getHeightMap(), {
+      west: heightsAt(-1, 0),
+      east: heightsAt(1, 0),
+      north: heightsAt(0, -1),
+      south: heightsAt(0, 1),
+    });
+    return chunk.light;
   }
 
   /**

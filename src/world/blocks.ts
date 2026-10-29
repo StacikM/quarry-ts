@@ -34,25 +34,4 @@ export const Block = {
 
 export const MAX_BLOCK_ID = 255;
 
-/**
- * Blocks that let sunlight through. Used for lighting: everything above the
- * highest block that is NOT in this list is lit; everything below is dark.
- * Add an id here when you add a see-through block (glass, leaves, ...).
- */
-const TRANSPARENT_BLOCKS = new Set<number>([
-  0, // air
-  8, // flowing water
-  9, // still water
-  18, // leaves
-  20, // glass
-  31, // tall grass
-  32, // dead bush
-  37, // dandelion
-  38, // rose
-  78, // snow layer
-  83, // sugar cane
-]);
-
-export function isTransparent(blockId: number): boolean {
-  return TRANSPARENT_BLOCKS.has(blockId);
-}
+// How blocks affect light (opacity, glow) lives in lightData.ts.

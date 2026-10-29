@@ -8,6 +8,7 @@ import { PacketWriter } from "../network/PacketWriter";
 import { LoginOut, PlayOut, StatusOut } from "./packetIds";
 import type { Player } from "../game/Player";
 import type { Chunk } from "../world/Chunk";
+import type { ChunkLight } from "../world/lighting";
 import type { BlockPosition } from "../world/BlockPosition";
 import type { GameMode } from "../game/GameMode";
 
@@ -127,8 +128,8 @@ export function entityHeadLook(player: Player): PacketWriter {
   return new PacketWriter(PlayOut.EntityHeadLook).writeVarInt(player.entityId).writeAngle(player.yaw);
 }
 
-export function chunkData(chunk: Chunk): PacketWriter {
-  const { sectionMask, data } = chunk.serialize();
+export function chunkData(chunk: Chunk, light: ChunkLight): PacketWriter {
+  const { sectionMask, data } = chunk.serialize(light);
   return new PacketWriter(PlayOut.ChunkData)
     .writeInt(chunk.x)
     .writeInt(chunk.z)

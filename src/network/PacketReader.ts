@@ -37,6 +37,10 @@ export class PacketReader {
   /** Strings are a VarInt length (in bytes) followed by UTF-8 text. */
   readString(): string {
     const length = this.readVarInt();
+    // A VarInt can be negative. Without this check a bad client could make us read backwards.
+    if (length < 0) {
+      throw new Error(`String has a negative length (${length})`);
+    }
     this.need(length);
     const text = this.buffer.toString("utf8", this.offset, this.offset + length);
     this.offset += length;
