@@ -26,6 +26,7 @@ function quiet<T>(fn: () => T): T {
 }
 
 async function main(): Promise<void> {
+  fs.writeFileSync("ops.json", JSON.stringify(["OpUser"])); // read when the config module loads
   const { Scheduler } = await import("../src/plugins/Scheduler");
   const { EventBus } = await import("../src/plugins/EventBus");
   const { PluginManager } = await import("../src/plugins/PluginManager");
@@ -295,6 +296,53 @@ async function main(): Promise<void> {
     fs.renameSync(parked, saveFolder);
     assert.deepStrictEqual(server.saveWorld(), { saved: 1, failed: 0 }, "the retry must succeed once the disk is fine");
     console.log("ok a failed final save is reported, then retried successfully");
+  }
+
+  // ------------------------------------------------------ /gamemode
+  {
+    const { MinecraftServer } = await import("../src/game/Server");
+    const { runCommand } = await import("../src/game/commands");
+    const { GameMode } = await import("../src/game/GameMode");
+    const { config } = await import("../src/config");
+    assert.deepStrictEqual(config.ops, ["OpUser"], "operators must come from ops.json");
+
+    const server = new MinecraftServer();
+    const join = (name: string, uuidEnd: string) => {
+      const said: string[] = [];
+      const connection = {
+        player: null as unknown,
+        address: "test",
+        send: (packet: { packetId: number; toBuffer(): Buffer }) => {
+          if (packet.packetId === 2) said.push(packet.toBuffer().toString().replace(/.*"text":"([^"]*)".*/s, "$1"));
+        },
+        disconnect: () => {},
+      };
+      server.addPlayer(connection as never, name, "00000000-0000-0000-0000-00000000000" + uuidEnd);
+      return { player: connection.player as { gameMode: number }, said };
+    };
+
+    // Everyone starts in creative, so a player who isn't an operator can't tell a refused command from one that worked.
+    const visitor = join("Visitor", "1");
+    visitor.player.gameMode = GameMode.Survival;
+    runCommand(visitor.player as never, "gamemode c");
+    assert.strictEqual(visitor.player.gameMode, GameMode.Survival, "a non-operator must not be able to change game mode");
+    assert.ok(visitor.said.some((m) => /permission/i.test(m)), "and must be told why");
+
+    const op = join("OpUser", "2");
+    const cases: Array<[string, number]> = [
+      ["s", GameMode.Survival], ["survival", GameMode.Survival], ["C", GameMode.Creative], ["creative", GameMode.Creative],
+      ["a", GameMode.Adventure], ["2", GameMode.Adventure], ["sp", GameMode.Spectator], ["3", GameMode.Spectator], ["0", GameMode.Survival],
+    ];
+    for (const [typed, expected] of cases) {
+      runCommand(op.player as never, "gamemode " + typed);
+      assert.strictEqual(op.player.gameMode, expected, "/gamemode " + typed);
+    }
+    for (const typed of ["", "x", "9", "creativ"]) {
+      op.player.gameMode = GameMode.Adventure;
+      runCommand(op.player as never, ("gamemode " + typed).trim());
+      assert.strictEqual(op.player.gameMode, GameMode.Adventure, "bad input '" + typed + "' must change nothing");
+    }
+    console.log("ok /gamemode: operators only, accepts 0-3, s/c/a/sp and full names, rejects the rest");
   }
 
   console.log("ALL CORE CHECKS PASS");

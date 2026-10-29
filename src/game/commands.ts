@@ -8,6 +8,14 @@ import { config } from "../config";
  * CommandRegistry that plugins use (under the owner name "core").
  * `args` are the words after the command name, e.g. "/tp Steve" -> ["Steve"].
  */
+/** What players may type for each game mode: the number, a short letter(s), or the full name. */
+const GAME_MODE_ALIASES: Record<string, GameMode> = {
+  "0": GameMode.Survival, s: GameMode.Survival, survival: GameMode.Survival,
+  "1": GameMode.Creative, c: GameMode.Creative, creative: GameMode.Creative,
+  "2": GameMode.Adventure, a: GameMode.Adventure, adventure: GameMode.Adventure,
+  "3": GameMode.Spectator, sp: GameMode.Spectator, spectator: GameMode.Spectator,
+};
+
 export const coreCommands: PluginCommand[] = [
   {
     name: "help",
@@ -32,12 +40,12 @@ export const coreCommands: PluginCommand[] = [
 
   {
     name: "gamemode",
-    usage: "/gamemode <0|1|2|3>",
+    usage: "/gamemode <survival|creative|adventure|spectator>  (or 0-3, or s/c/a/sp)",
     description: "Survival, creative, adventure or spectator",
     opOnly: true,
     run(player, args) {
-      const mode = Number(args[0]);
-      if (!args[0] || !(mode in GameMode)) {
+      const mode = GAME_MODE_ALIASES[(args[0] ?? "").toLowerCase()];
+      if (mode === undefined) {
         player.sendMessage(`Usage: ${this.usage}`, "red");
         return;
       }
