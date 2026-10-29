@@ -4,6 +4,20 @@ A Minecraft **1.8.9** server written in TypeScript, kept small enough to read.
 
 It has generated terrain (biomes, caves, ores, trees, plants), players who can see each other, chat, commands, block building and breaking, a plugin system, and a world that is saved to disk. It runs in offline mode (see "Not implemented").
 
+## About this project: 100% AI-generated, and tested
+
+**Every line of code, test and document in this repository was written by AI**, not by a human programmer: [Claude](https://www.anthropic.com/claude) (Anthropic) and Codex (OpenAI) built it together, with a human directing the work, playing the server and reporting bugs. The two AIs also reviewed each other's code.
+
+"Tested" here means specific things, so you can judge for yourself:
+
+- **Automated tests.** `npm run check` type-checks everything and runs the test suites: terrain generation (the same seed gives the same world in any order), world saving including damaged and unreadable files, the plugin system, lighting, doors, moderation and the console, and the network protocol.
+- **Checked against the real game, not just against our own code.** Light and glow values for every block were read from the real Minecraft 1.8.9 and are compared in the tests. Network packets are decoded with an independent library (PrismarineJS) that we did not write.
+- **Played in a real Minecraft 1.8.9 client.** That found real bugs (black blocks after breaking a cactus, doors that did nothing), which were fixed and now have tests.
+
+What it is **not**: it has not had a human code review or a security audit, it has not been run with many players at once, and it runs in offline mode, so players are not authenticated. Treat it as a learning project and do not expose it to the internet. See "Not implemented" below.
+
+*This is an unofficial project. It is not affiliated with, endorsed by or connected to Mojang Studios or Microsoft. "Minecraft" is a trademark of Mojang Studios.*
+
 ## Running it
 
 ```sh
