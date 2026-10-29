@@ -2,6 +2,7 @@
   "name": "quarry-ts",
   "version": "1.0.0",
   "description": "Quarry.ts: a readable Minecraft 1.8.9 server written in TypeScript",
+  "author": "Stacik",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

@@ -6,6 +6,8 @@ It has generated terrain (biomes, caves, ores, trees, plants), players who can s
 
 ## About this project: 100% AI-generated, and tested
 
+Created and directed by **Stacik**.
+
 **Every line of code, test and document in this repository was written by AI**, not by a human programmer: [Claude](https://www.anthropic.com/claude) (Anthropic) and Codex (OpenAI) built it together, with a human directing the work, playing the server and reporting bugs. The two AIs also reviewed each other's code.
 
 "Tested" here means specific things, so you can judge for yourself:
@@ -170,3 +172,7 @@ Two things to know:
 - Inventories, health and hunger, item drops
 - Mobs
 - Light that spreads sideways, and light from torches or lava (sunlight only goes straight down)
+
+## License
+
+[MIT](LICENSE), Copyright (c) 2026 Stacik. You may use, change and share it freely, including commercially, as long as the license text stays with it. It comes with no warranty.
