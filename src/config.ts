@@ -30,6 +30,21 @@ export const config = {
   /** How many chunks around the player we send (in each direction). */
   viewDistance: 6,
 
+  /**
+   * Chunks are sent a few per tick instead of all at once, so teleporting or
+   * flying never freezes the server. This is how many milliseconds of each
+   * 50 ms tick may be spent preparing and sending chunks (shared by all players).
+   * Higher loads the world faster but risks lag; lower is smoother but slower.
+   */
+  chunkBudgetMs: 10,
+
+  /**
+   * When a player joins or teleports, the chunks within this many chunks of them
+   * are sent immediately (1 = the 3x3 around them) so they always have ground
+   * to stand on. The rest stream in over the next ticks, nearest first.
+   */
+  urgentChunkRadius: 1,
+
   defaultGameMode: GameMode.Creative,
 
   /** Operators (case-insensitive) can run commands marked opOnly. Edit ops.json, not this file. */

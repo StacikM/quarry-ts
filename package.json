@@ -7,9 +7,10 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "play": "tsc && node dist/index.js",
     "dev": "tsx src/index.ts",
     "setup-git": "git config core.hooksPath .githooks",
-    "check": "tsc --noEmit && tsx scripts/core-check.ts && tsx scripts/terrain-check.ts && tsx scripts/plugins-check.ts && tsx scripts/plugin-docs-check.ts && tsx scripts/light-data-check.ts && tsx scripts/lighting-check.ts && tsx scripts/doors-check.ts && tsx scripts/protocol-check.ts && tsx scripts/admin-check.ts"
+    "check": "tsc --noEmit && tsx scripts/core-check.ts && tsx scripts/terrain-check.ts && tsx scripts/plugins-check.ts && tsx scripts/plugin-docs-check.ts && tsx scripts/light-data-check.ts && tsx scripts/lighting-check.ts && tsx scripts/doors-check.ts && tsx scripts/protocol-check.ts && tsx scripts/admin-check.ts && tsx scripts/streaming-check.ts"
   },
   "license": "MIT",
   "devDependencies": {

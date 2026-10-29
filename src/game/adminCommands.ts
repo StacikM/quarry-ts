@@ -84,6 +84,7 @@ function workLines(server: MinecraftServer): string[] {
       `slowest ${t.generateMaxMs.toFixed(2)} ms)`,
     `${colour.gray}Chunks lit: ${colour.white}${t.chunksLit}${colour.gray} (average ${average(t.lightMs, t.chunksLit)} ms, ` +
       `slowest ${t.lightMaxMs.toFixed(2)} ms)`,
+    `${colour.gray}Chunks waiting to be sent to players: ${colour.white}${server.getPendingChunkCount()}`,
   ];
 }
 

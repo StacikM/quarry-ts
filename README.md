@@ -24,11 +24,12 @@ What it is **not**: it has not had a human code review or a security audit, it h
 
 ```sh
 npm install
-npm run dev        # run straight from the TypeScript source
-# or
-npm run build      # compile to dist/
-npm start          # run the compiled code
+npm run play       # build and start the server: use this to actually play
 ```
+
+`npm run dev` also starts it, straight from the TypeScript source, which is handy while editing code, but it runs about **5 times slower** (in a measurement, generating a new area took 1.8 s instead of 0.35 s). `npm run build` then `npm start` is the same as `npm run play` in two steps.
+
+**Why teleporting and flying don't freeze the server:** chunks are not all sent at once. Only the 3x3 around you arrive immediately, so you never fall through the world, and the rest stream in a few per tick, nearest first. The budget is `chunkBudgetMs` in [src/config.ts](src/config.ts). Autosaves are spread over ticks the same way. `/perf` shows how many chunks are still waiting.
 
 In Minecraft 1.8.9: Multiplayer, then Add Server, then `localhost`.
 

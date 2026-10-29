@@ -114,21 +114,41 @@ export class World {
    * `failed` counts chunks that still have unsaved changes (they are retried on the next call).
    */
   saveDirtyChunks(): { saved: number; failed: number } {
-    if (!this.storage) return { saved: 0, failed: 0 };
+    const { saved, failed } = this.saveSomeDirtyChunks(Infinity);
+    return { saved, failed };
+  }
+
+  /**
+   * Like saveDirtyChunks, but stops once `budgetMs` milliseconds have been spent
+   * (after at least one chunk), so a big autosave can be spread over several ticks.
+   * `remaining` is how many changed chunks are still waiting. Chunks in `skip` are
+   * left alone, and chunks that fail to save are added to it, so a broken chunk
+   * is not retried again and again within one autosave.
+   */
+  saveSomeDirtyChunks(budgetMs: number, skip: Set<Chunk> = new Set()): { saved: number; failed: number; remaining: number } {
+    if (!this.storage) return { saved: 0, failed: 0, remaining: 0 };
+    const deadline = performance.now() + budgetMs;
     let saved = 0;
     let failed = 0;
+    let remaining = 0;
+
     for (const chunk of this.chunks.values()) {
-      if (!chunk.dirty) continue;
+      if (!chunk.dirty || skip.has(chunk)) continue;
+      if (saved + failed > 0 && performance.now() >= deadline) {
+        remaining++; // out of time: leave this one for the next call
+        continue;
+      }
       try {
         this.storage.save(chunk.x, chunk.z, chunk.getEdits() as Map<number, number>);
         chunk.dirty = false; // only after a successful write, so a failure is retried next time
         saved++;
       } catch (err) {
         failed++;
+        skip.add(chunk);
         logger.error(`Could not save chunk ${chunk.x},${chunk.z}: ${(err as Error).message}`);
       }
     }
-    return { saved, failed };
+    return { saved, failed, remaining };
   }
 
   /**

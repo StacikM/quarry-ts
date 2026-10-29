@@ -10,8 +10,9 @@ import { ConsoleSender } from "./CommandSender";
 import { ServerStats } from "./stats";
 import { Player } from "./Player";
 import { config } from "../config";
-import { logger } from "../util/logger";
+import { formatError, logger } from "../util/logger";
 import type { BlockPosition } from "../world/BlockPosition";
+import type { Chunk } from "../world/Chunk";
 import {
   blockChange,
   chatMessage,
@@ -31,6 +32,8 @@ import {
  */
 /** One server tick is 50 ms, so there are 20 a second. */
 const TICK_MS = 50;
+/** How much of each tick a running autosave may use. A 20 chunk autosave then takes about 3 ticks. */
+const AUTOSAVE_BUDGET_MS = 5;
 /** After a stall we run at most this many missed ticks back to back; the rest are skipped. */
 const MAX_CATCH_UP_TICKS = 5;
 
@@ -44,6 +47,10 @@ export class MinecraftServer {
   /** The server console, as someone who can run commands. */
   readonly console = new ConsoleSender(this);
   private tickCount = 0;
+  /** Which player gets the next chunk first, so they take turns. */
+  private streamTurn = 0;
+  /** An autosave that is spread over several ticks, or null when none is running. */
+  private autosave: { skip: Set<Chunk>; saved: number; failed: number } | null = null;
   /** When the tick clock started, and how many ticks have run since (see scheduleTick). */
   private tickClockStart = 0;
   private ticksRun = 0;
@@ -73,7 +80,7 @@ export class MinecraftServer {
     this.tickClockStart = performance.now();
     this.ticksRun = 0;
     this.scheduleTick();
-    this.saveTimer = setInterval(() => this.saveWorld(), config.autosaveIntervalMs);
+    this.saveTimer = setInterval(() => this.startAutosave(), config.autosaveIntervalMs);
   }
 
   /**
@@ -104,10 +111,49 @@ export class MinecraftServer {
     this.scheduleTick();
   }
 
+  /**
+   * Sends waiting chunks to players, spending at most `budgetMs` of this tick on it
+   * (but always at least one chunk, so loading never stalls). Players take turns
+   * one chunk at a time, so one person teleporting does not starve everyone else.
+   * Returns how many chunks were attempted.
+   */
+  streamChunks(budgetMs: number = config.chunkBudgetMs): number {
+    const waiting = [...this.players.values()].filter((player) => player.pendingChunkCount > 0);
+    const deadline = performance.now() + budgetMs;
+    let attempted = 0;
+    let turn = this.streamTurn++;
+
+    while (waiting.length > 0 && (attempted === 0 || performance.now() < deadline)) {
+      const player = waiting[turn++ % waiting.length];
+      attempted++;
+      try {
+        player.sendNextChunk();
+      } catch (err) {
+        // For example a save file that cannot be read. The chunk is skipped; the world is not lost.
+        logger.error(`Could not send a chunk to ${player.username}: ${formatError(err)}`);
+      }
+      if (player.pendingChunkCount === 0) waiting.splice(waiting.indexOf(player), 1);
+    }
+    return attempted;
+  }
+
+  /** How many chunks are waiting to be sent to all players together. */
+  getPendingChunkCount(): number {
+    let total = 0;
+    for (const player of this.players.values()) total += player.pendingChunkCount;
+    return total;
+  }
+
   /** One server tick (every 50 ms): runs scheduled plugin tasks, and times itself for /tps. */
   private tick(): void {
     const startedAt = performance.now();
     this.plugins.scheduler.tick();
+    try {
+      this.streamChunks();
+      this.stepAutosave();
+    } catch (err) {
+      logger.error(`Sending chunks or autosaving failed: ${formatError(err)}`);
+    }
     this.stats.recordTick(performance.now() - startedAt);
 
     // Forget old stall measurements every 5 minutes so one old spike does not show forever.
@@ -133,11 +179,42 @@ export class MinecraftServer {
   }
 
   /**
+   * Starts the periodic autosave. Instead of writing every changed chunk at once
+   * (about 1.4 ms each, so building across 200 chunks froze the server for over
+   * a quarter of a second), the chunks are written a few per tick by stepAutosave().
+   */
+  startAutosave(): void {
+    if (!this.autosave) this.autosave = { skip: new Set(), saved: 0, failed: 0 };
+  }
+
+  /** Does a small slice of a running autosave, and finishes it when nothing is left. */
+  stepAutosave(budgetMs: number = AUTOSAVE_BUDGET_MS): void {
+    const autosave = this.autosave;
+    if (!autosave) return;
+
+    const result = this.world.saveSomeDirtyChunks(budgetMs, autosave.skip);
+    autosave.saved += result.saved;
+    autosave.failed += result.failed;
+    if (result.remaining > 0) return; // more next tick
+
+    this.autosave = null;
+    const keep = new Set<string>();
+    for (const player of this.players.values()) {
+      for (const key of player.loadedChunkKeys) keep.add(key);
+    }
+    const unloaded = this.world.unloadChunksExcept(keep);
+    if (autosave.saved > 0) {
+      logger.info(`World saved: ${autosave.saved} chunk file(s) written, ${unloaded} chunk(s) unloaded, ${this.world.loadedChunkCount} in memory`);
+    }
+  }
+
+  /**
    * Writes changed chunks to disk, then frees chunks no player is near.
    * Runs every autosave interval and when the server stops.
    * `failed` is how many chunks still have unsaved changes.
    */
   saveWorld(options: { quiet?: boolean } = {}): { saved: number; failed: number } {
+    this.autosave = null; // this save covers everything, so a running slow autosave is no longer needed
     const { saved, failed } = this.world.saveDirtyChunks();
     const keep = new Set<string>();
     for (const player of this.players.values()) {
@@ -209,7 +286,7 @@ export class MinecraftServer {
     const { x, y, z } = spawn;
     player.send(joinGame(player.entityId, player.gameMode, config.maxPlayers));
     player.send(spawnPosition({ x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) }));
-    player.updateLoadedChunks();
+    player.updateLoadedChunks(true); // the nearest chunks now, the rest are streamed over the next ticks
     player.send(playerPositionAndLook(x, y, z, player.yaw, player.pitch));
 
     // Tab list: the new player needs everyone (including themselves),
