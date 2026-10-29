@@ -9,6 +9,7 @@ import { logger } from "./util/logger";
  *   save         -> saves the world right now
  *   anything     -> sent to everyone as a [Server] chat message
  */
+logger.info("Quarry.ts: Minecraft 1.8.9 server");
 const server = new MinecraftServer();
 server.start();
 

@@ -1,4 +1,4 @@
-# mcserver-ts
+# Quarry.ts
 
 A Minecraft **1.8.9** server written in TypeScript, kept small enough to read.
 
