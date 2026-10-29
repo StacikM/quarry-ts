@@ -14,6 +14,16 @@ import { logger } from "../util/logger";
 export class World {
   private readonly chunks = new Map<string, Chunk>();
 
+  /** How much work generating and lighting chunks has cost so far (shown by /perf). */
+  readonly timings = {
+    chunksGenerated: 0,
+    generateMs: 0,
+    generateMaxMs: 0,
+    chunksLit: 0,
+    lightMs: 0,
+    lightMaxMs: 0,
+  };
+
   /** `storage` is optional so tests can use a world that is never saved. */
   constructor(
     readonly generator: TerrainGenerator,
@@ -33,7 +43,12 @@ export class World {
     let chunk = this.chunks.get(key);
     if (!chunk) {
       chunk = new Chunk(chunkX, chunkZ);
+      const startedAt = performance.now();
       this.generator.generate(chunk);
+      const took = performance.now() - startedAt;
+      this.timings.chunksGenerated++;
+      this.timings.generateMs += took;
+      this.timings.generateMaxMs = Math.max(this.timings.generateMaxMs, took);
       const saved = this.storage?.load(chunkX, chunkZ);
       if (saved) chunk.applyEdits(saved);
       this.chunks.set(key, chunk);
@@ -80,12 +95,17 @@ export class World {
     if (chunk.light) return chunk.light;
 
     const heightsAt = (dx: number, dz: number) => this.getChunk(chunk.x + dx, chunk.z + dz).getHeightMap();
+    const startedAt = performance.now();
     chunk.light = computeLight(chunk.getRawBlocks() as Uint16Array, chunk.getHeightMap(), {
       west: heightsAt(-1, 0),
       east: heightsAt(1, 0),
       north: heightsAt(0, -1),
       south: heightsAt(0, 1),
     });
+    const took = performance.now() - startedAt;
+    this.timings.chunksLit++;
+    this.timings.lightMs += took;
+    this.timings.lightMaxMs = Math.max(this.timings.lightMaxMs, took);
     return chunk.light;
   }
 
@@ -125,6 +145,20 @@ export class World {
       unloaded++;
     }
     return unloaded;
+  }
+
+  /** Estimated memory used by the chunks that are loaded right now. */
+  memoryReport(): { chunks: number; blockBytes: number; lightBytes: number; otherBytes: number } {
+    let blockBytes = 0;
+    let lightBytes = 0;
+    let otherBytes = 0;
+    for (const chunk of this.chunks.values()) {
+      const usage = chunk.memoryBreakdown();
+      blockBytes += usage.blockBytes;
+      lightBytes += usage.lightBytes;
+      otherBytes += usage.otherBytes;
+    }
+    return { chunks: this.chunks.size, blockBytes, lightBytes, otherBytes };
   }
 
   get loadedChunkCount(): number {

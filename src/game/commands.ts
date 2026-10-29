@@ -3,12 +3,18 @@ import { GameMode } from "./GameMode";
 import type { PluginCommand } from "../plugins/types";
 import { config } from "../config";
 import { addOperator, removeOperator } from "./operators";
+import { colour, sendUsage, senderCommand } from "./commandSupport";
 
 /**
  * The commands that come with the server. They are registered in the same
  * CommandRegistry that plugins use (under the owner name "core").
  * `args` are the words after the command name, e.g. "/tp Steve" -> ["Steve"].
+ *
+ * Commands made with senderCommand() also work from the server console.
+ * The others (/gamemode, /spawn, /tp) need a player, so they are game only.
+ * More commands (moderation, profiling) are in adminCommands.ts.
  */
+
 /** What players may type for each game mode: the number, a short letter(s), or the full name. */
 const GAME_MODE_ALIASES: Record<string, GameMode> = {
   "0": GameMode.Survival, s: GameMode.Survival, survival: GameMode.Survival,
@@ -18,26 +24,32 @@ const GAME_MODE_ALIASES: Record<string, GameMode> = {
 };
 
 export const coreCommands: PluginCommand[] = [
-  {
+  senderCommand({
     name: "help",
     description: "List all commands",
-    run(player) {
-      player.sendMessage("Commands:", "gold");
-      for (const command of player.server.plugins.commands.all()) {
-        if (command.opOnly && !player.isOp) continue;
-        player.sendMessage(`/${command.name} - ${command.description}`, "gray");
+    run(sender) {
+      sender.sendMessage("Commands:", "gold");
+      const prefix = sender.isConsole ? "" : "/";
+      for (const command of sender.server.plugins.commands.all()) {
+        if (command.opOnly && !sender.isOp) continue;
+        if (sender.isConsole && !command.runConsole) continue; // game-only commands are useless here
+        sender.sendMessage(`${colour.white}${prefix}${command.name}${colour.gray} - ${command.description}`);
+      }
+      if (sender.isConsole) {
+        sender.sendMessage(`${colour.white}stop${colour.gray} - save the world and shut down`);
+        sender.sendMessage(`${colour.white}stop force${colour.gray} - shut down even if saving fails`);
       }
     },
-  },
+  }),
 
-  {
+  senderCommand({
     name: "list",
     description: "Show who is online",
-    run(player) {
-      const names = player.server.getOnlinePlayers().map((p) => p.username);
-      player.sendMessage(`Online (${names.length}): ${names.join(", ")}`);
+    run(sender) {
+      const names = sender.server.getOnlinePlayers().map((p) => p.username);
+      sender.sendMessage(`Online (${names.length}): ${names.join(", ") || "nobody"}`);
     },
-  },
+  }),
 
   {
     name: "gamemode",
@@ -80,56 +92,65 @@ export const coreCommands: PluginCommand[] = [
     },
   },
 
-  {
+  senderCommand({
     name: "op",
-    usage: "/op <player name>",
+    usage: "op <player name>",
     description: "Make a player an operator",
     opOnly: true,
-    run(player, args) {
+    run(sender, args) {
       const result = args.length === 1 ? addOperator(args[0]) : "invalid";
-      if (result === "invalid") player.sendMessage(`Usage: ${this.usage} (a valid Minecraft name)`, "red");
-      else if (result === "already") player.sendMessage(`${args[0]} is already an operator.`, "yellow");
+      if (result === "invalid") sendUsage(sender, "op <a valid Minecraft name>");
+      else if (result === "already") sender.sendMessage(`${args[0]} is already an operator.`, "yellow");
       else {
-        player.sendMessage(`${args[0]} is now an operator.`, "green");
-        player.server.getPlayerByName(args[0])?.sendMessage("You are now an operator.", "yellow");
+        sender.sendMessage(`${args[0]} is now an operator.`, "green");
+        sender.server.getPlayerByName(args[0])?.sendMessage("You are now an operator.", "yellow");
       }
     },
-  },
+  }),
 
-  {
+  senderCommand({
     name: "deop",
-    usage: "/deop <player name>",
+    usage: "deop <player name>",
     description: "Remove a player's operator status",
     opOnly: true,
-    run(player, args) {
+    run(sender, args) {
       if (args.length !== 1) {
-        player.sendMessage(`Usage: ${this.usage}`, "red");
+        sendUsage(sender, "deop <player name>");
         return;
       }
-      if (removeOperator(args[0]) === "not-an-operator") player.sendMessage(`${args[0]} is not an operator.`, "yellow");
+      if (removeOperator(args[0]) === "not-an-operator") sender.sendMessage(`${args[0]} is not an operator.`, "yellow");
       else {
-        player.sendMessage(`${args[0]} is no longer an operator.`, "green");
-        player.server.getPlayerByName(args[0])?.sendMessage("You are no longer an operator.", "yellow");
+        sender.sendMessage(`${args[0]} is no longer an operator.`, "green");
+        sender.server.getPlayerByName(args[0])?.sendMessage("You are no longer an operator.", "yellow");
       }
     },
-  },
+  }),
 
-  {
+  senderCommand({
+    name: "ops",
+    description: "List operators",
+    opOnly: true,
+    run(sender) {
+      sender.sendMessage(`Operators (${config.ops.length}): ${config.ops.join(", ") || "nobody"}`);
+    },
+  }),
+
+  senderCommand({
     name: "plugins",
     description: "List enabled plugins",
-    run(player) {
-      const names = player.server.plugins.getEnabledNames();
-      player.sendMessage(`Plugins (${names.length}): ${names.join(", ") || "none"}`);
+    run(sender) {
+      const names = sender.server.plugins.getEnabledNames();
+      sender.sendMessage(`Plugins (${names.length}): ${names.join(", ") || "none"}`);
     },
-  },
+  }),
 
-  {
+  senderCommand({
     name: "seed",
     description: "Show the world seed",
-    run(player) {
-      player.sendMessage(`Seed: ${config.seed} (generator: ${player.server.world.generator.name})`);
+    run(sender) {
+      sender.sendMessage(`Seed: ${config.seed} (generator: ${sender.server.world.generator.name})`);
     },
-  },
+  }),
 ];
 
 /** Called for every chat message that starts with "/". */

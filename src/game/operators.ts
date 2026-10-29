@@ -35,6 +35,10 @@ export function removeOperator(name: string): RemoveResult {
   return "removed";
 }
 
+export function isOperatorName(name: string): boolean {
+  return config.ops.some((existing) => sameName(existing, name));
+}
+
 export function listOperators(): string[] {
   return [...config.ops];
 }

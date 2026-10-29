@@ -4,6 +4,10 @@ import type { PacketWriter } from "../network/PacketWriter";
 import { createWorld } from "./createWorld";
 import { PluginManager } from "../plugins/PluginManager";
 import { coreCommands } from "./commands";
+import { adminCommands } from "./adminCommands";
+import { BanList } from "./bans";
+import { ConsoleSender } from "./CommandSender";
+import { ServerStats } from "./stats";
 import { Player } from "./Player";
 import { config } from "../config";
 import { logger } from "../util/logger";
@@ -25,9 +29,24 @@ import {
  * The heart of the server: owns the world and the list of players,
  * and accepts new TCP connections.
  */
+/** One server tick is 50 ms, so there are 20 a second. */
+const TICK_MS = 50;
+/** After a stall we run at most this many missed ticks back to back; the rest are skipped. */
+const MAX_CATCH_UP_TICKS = 5;
+
 export class MinecraftServer {
   readonly world = createWorld();
   readonly plugins = new PluginManager(this);
+  /** Who is banned. Read from bans.json when the server is created. */
+  readonly bans = new BanList();
+  /** Ticks per second, stalls and CPU use, shown by /tps and /perf. */
+  readonly stats = new ServerStats();
+  /** The server console, as someone who can run commands. */
+  readonly console = new ConsoleSender(this);
+  private tickCount = 0;
+  /** When the tick clock started, and how many ticks have run since (see scheduleTick). */
+  private tickClockStart = 0;
+  private ticksRun = 0;
 
   /** Online players, keyed by entity ID. */
   private readonly players = new Map<number, Player>();
@@ -39,19 +58,60 @@ export class MinecraftServer {
   private saveTimer: NodeJS.Timeout | null = null;
 
   constructor() {
-    for (const command of coreCommands) {
+    for (const command of [...coreCommands, ...adminCommands]) {
       this.plugins.commands.register("core", command);
     }
   }
 
   start(): void {
     this.plugins.loadAll();
+    this.stats.start();
     this.tcpServer.listen(config.port, config.host, () => {
       logger.info(`Listening on ${config.host}:${config.port}`);
     });
     this.keepAliveTimer = setInterval(() => this.sendKeepAlives(), config.keepAliveIntervalMs);
-    this.tickTimer = setInterval(() => this.plugins.scheduler.tick(), 50); // 20 ticks per second
+    this.tickClockStart = performance.now();
+    this.ticksRun = 0;
+    this.scheduleTick();
     this.saveTimer = setInterval(() => this.saveWorld(), config.autosaveIntervalMs);
+  }
+
+  /**
+   * Runs the ticks on a clock of our own: tick N is due N * 50 ms after the start.
+   *
+   * A plain setInterval(50) is not good enough. On Windows timers only wake up
+   * in steps of about 15.6 ms, so an interval of 50 ms really fires every
+   * 62.5 ms and the server would tick 16 times a second instead of 20 (a plugin
+   * task set for "20 ticks" would take 1.25 seconds). Here every wake-up works
+   * out how many ticks are due and runs them, so time stays correct.
+   * If the server stalls for more than a few ticks we skip the ticks we cannot make up.
+   */
+  private scheduleTick(): void {
+    const dueAt = this.tickClockStart + (this.ticksRun + 1) * TICK_MS;
+    this.tickTimer = setTimeout(() => this.runDueTicks(), Math.max(1, dueAt - performance.now()));
+  }
+
+  private runDueTicks(): void {
+    let due = Math.floor((performance.now() - this.tickClockStart) / TICK_MS) - this.ticksRun;
+    if (due > MAX_CATCH_UP_TICKS) {
+      this.ticksRun += due - MAX_CATCH_UP_TICKS; // too far behind: drop the ticks we can't make up
+      due = MAX_CATCH_UP_TICKS;
+    }
+    for (let i = 0; i < due; i++) {
+      this.tick();
+      this.ticksRun++;
+    }
+    this.scheduleTick();
+  }
+
+  /** One server tick (every 50 ms): runs scheduled plugin tasks, and times itself for /tps. */
+  private tick(): void {
+    const startedAt = performance.now();
+    this.plugins.scheduler.tick();
+    this.stats.recordTick(performance.now() - startedAt);
+
+    // Forget old stall measurements every 5 minutes so one old spike does not show forever.
+    if (++this.tickCount % (20 * 300) === 0) this.stats.resetEventLoop();
   }
 
   /**
@@ -65,8 +125,9 @@ export class MinecraftServer {
       player.kick("Server closed");
     }
     if (this.keepAliveTimer) clearInterval(this.keepAliveTimer);
-    if (this.tickTimer) clearInterval(this.tickTimer);
+    if (this.tickTimer) clearTimeout(this.tickTimer);
     if (this.saveTimer) clearInterval(this.saveTimer);
+    this.stats.stop();
     this.plugins.disableAll();
     this.tcpServer.close();
   }

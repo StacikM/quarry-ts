@@ -44,13 +44,32 @@ export interface ServerEvents {
 
 export type EventName = keyof ServerEvents;
 
+/**
+ * Whoever runs a command: a player in game, or the server console.
+ * Both can reply with sendMessage. Colour codes like "§a" work in game and are removed in the console.
+ */
+export interface CommandSender {
+  readonly server: MinecraftServer;
+  /** The player's name, or "Console". */
+  readonly name: string;
+  readonly isOp: boolean;
+  readonly isConsole: boolean;
+  sendMessage(text: string, color?: string): void;
+}
+
 export interface PluginCommand {
   name: string;
   description: string;
   usage?: string;
-  /** If true, only operators (config.ops) can run it. */
+  /** If true, only operators (config.ops) can run it. The console always can. */
   opOnly?: boolean;
+  /** Runs the command for a player. */
   run(player: Player, args: string[]): void;
+  /**
+   * Optional: lets the server console run this command too. Commands that need
+   * a player (like /tp or /home) leave it out, and the console says they can only be used in game.
+   */
+  runConsole?(sender: CommandSender, args: string[]): void;
 }
 
 export interface PluginLogger {

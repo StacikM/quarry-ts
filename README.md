@@ -18,9 +18,30 @@ In Minecraft 1.8.9: Multiplayer, then Add Server, then `localhost`.
 
 **Before you play:** type `op YourMinecraftName` in the server console (it saves the name to an `ops.json` file in the folder you start the server from, which you can also edit by hand, like `["YourName"]`). Operators can use `/gamemode` and `/tp` and can build inside the spawn protection area. The file is ignored by git, so your name is never committed. Everything else you may want to change is in [src/config.ts](src/config.ts): the seed, the port, the MOTD, view distance, and whether the world is `"natural"` or `"flat"`.
 
-Server console commands (type them in the terminal where the server runs; `help` lists them): `op <name>` and `deop <name>` give and take away operator status, `ops` lists operators, `say <message>` talks to everyone, `list` shows who is online, `save` writes the world to disk now, and `stop` saves and shuts down. Text that isn't a command is NOT sent to players, so a typo can't become public chat. If the world cannot be saved (disk full, folder not writable), `stop` keeps the server running and tells you; fix the problem and run `stop` again. `stop force` (or pressing Ctrl+C a second time) quits anyway and loses the unsaved changes.
+## Commands
 
-In-game commands: `/help` lists everything. Built in: `/list`, `/gamemode`, `/spawn`, `/tp`, `/plugins`, `/seed`. From the bundled plugins: `/sethome`, `/home`, `/warp`, `/warps`, `/setwarp`, `/rules`.
+Type these in game with a `/` in front, or in the server console (the terminal where the server runs) without it. In the console, `help` lists them. Anything that is not a command is NOT sent to players, so a typo can't become public chat.
+
+| Command | Who | What it does |
+| --- | --- | --- |
+| `/tps` | everyone | Ticks per second (20 is perfect), time per tick, and how late the server reacts |
+| `/mem` | operators | Memory: whole process, JavaScript heap and its limit, buffers, and the chunks in memory |
+| `/perf` | operators | Everything: uptime, players, CPU, TPS, memory, and how long chunk generation and lighting take |
+| `/kick <player> [reason]` | operators | Disconnect a player (they can rejoin) |
+| `/ban <player> [reason]` | operators | Ban a name. Works on players who are offline too |
+| `/banip <player or IP> [reason]` | operators | Ban an address, which kicks everyone using it |
+| `/unban <name>`, `/pardon <name>` | operators | Lift a name ban |
+| `/unbanip <IP>` | operators | Lift an address ban |
+| `/banlist` | operators | Show who is banned, by whom and when |
+| `/op <name>`, `/deop <name>`, `/ops` | operators | Give, take away and list operator status |
+| `/say <message>`, `/save`, `/list`, `/plugins`, `/seed` | operators / everyone | Broadcast, save the world now, who is online, plugins, world seed |
+| `/gamemode`, `/tp`, `/spawn` | in game only | Game mode (`c`, `s`, `a`, `sp` or 0-3), teleport to a player, go to spawn |
+
+From the bundled plugins: `/sethome`, `/home`, `/warp`, `/warps`, `/setwarp`, `/rules`. The console also has `stop` (save and shut down) and `stop force`.
+
+**Bans:** they are saved in `bans.json` next to `ops.json` (both ignored by git). Names are very easy to change on this server because it does not check accounts, so a name ban stops casual griefing but a determined person just rejoins under another name. `/banip` is the stronger tool. Be careful with it on a home network: banning `127.0.0.1` blocks everyone playing on the same computer, and many people share one address behind a router. Operators cannot kick or ban other operators from in game; the console can.
+
+**Reading `/tps` and `/mem`:** the server runs 20 ticks a second. If it falls below about 15, something is keeping the program busy (usually generating a lot of new chunks at once, for example when someone flies fast). "Delays" shows the worst freezes, which TPS can hide. In `/mem`, "Whole process" is what Task Manager shows; the JavaScript heap has a limit (usually about 4 GB, raised with `node --max-old-space-size=8192`), and chunk data lives in "Buffers".
 
 ## Checking that nothing broke
 

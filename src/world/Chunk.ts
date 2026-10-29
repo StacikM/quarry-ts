@@ -130,6 +130,19 @@ export class Chunk {
    */
   light: ChunkLight | null = null;
 
+  /**
+   * Roughly how many bytes of memory this chunk uses: the blocks, the light
+   * (only once it has been computed) and everything else (biomes, column
+   * heights, the list of edits). An estimate, not an exact figure.
+   */
+  memoryBreakdown(): { blockBytes: number; lightBytes: number; otherBytes: number } {
+    return {
+      blockBytes: this.blocks.byteLength,
+      lightBytes: this.light ? this.light.sky.byteLength + this.light.block.byteLength : 0,
+      otherBytes: this.biomes.byteLength + (this.heightMap?.byteLength ?? 0) + this.edits.size * 40,
+    };
+  }
+
   /** Forget the stored light so it is recomputed next time it is needed. */
   invalidateLight(): void {
     this.light = null;

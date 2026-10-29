@@ -64,6 +64,8 @@ module.exports = {
 };
 ```
 
+A command can also be run from the server console: add an optional `runConsole(sender, args)` next to `run(player, args)`. `sender` has `name`, `isOp`, `isConsole`, `server` and `sendMessage(text)`, and a `Player` fits that shape too, so the same function can serve both. Commands without `runConsole` are game only, and the console says so. The built-in `/kick`, `/ban`, `/tps` and others work this way.
+
 `opOnly` checks `player.isOp`, based on the case-insensitive names in `ops.json` (loaded into `config.ops`). Omit it for a public command. `/help` lists public commands and hides operator commands from non-operators. These permissions do not authenticate usernames: this server currently runs in offline mode.
 
 ## Scheduler

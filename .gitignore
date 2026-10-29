@@ -5,3 +5,5 @@
 # Personal files: the AI collaboration log and the local operator list
 /claudeandchatgpt.txt
 /ops.json
+/bans.json
+/.coordination-watch/

@@ -3,6 +3,7 @@ import type { PacketWriter } from "../network/PacketWriter";
 import type { MinecraftServer } from "./Server";
 import type { GameMode } from "./GameMode";
 import { config } from "../config";
+import { normalizeIp } from "../util/ip";
 import {
   changeGameMode,
   chatMessage,
@@ -41,6 +42,18 @@ export class Player {
     readonly uuid: string,
     public gameMode: GameMode,
   ) {}
+
+  /** Lets a Player be used wherever a CommandSender is expected. */
+  get name(): string {
+    return this.username;
+  }
+
+  readonly isConsole = false;
+
+  /** The client's IP address, without the "::ffff:" prefix some systems add to IPv4. */
+  get ip(): string {
+    return normalizeIp(this.connection.socket.remoteAddress ?? "");
+  }
 
   get isOp(): boolean {
     return config.ops.some((name) => name.toLowerCase() === this.username.toLowerCase());

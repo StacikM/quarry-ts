@@ -6,6 +6,8 @@ import { loginSuccess } from "../clientbound";
 import { config, PROTOCOL_VERSION, VERSION_NAME } from "../../config";
 import { offlineUUID } from "../../util/uuid";
 import { VALID_USERNAME } from "../../util/username";
+import { banMessage } from "../../game/bans";
+import { logger } from "../../util/logger";
 
 
 /**
@@ -27,6 +29,15 @@ export function handleLogin(conn: Connection, packetId: number, reader: PacketRe
   }
   if (!VALID_USERNAME.test(username)) {
     conn.disconnect("Invalid username.");
+    return;
+  }
+  // Bans are checked before anything else about the server's state, so a banned player learns nothing more.
+  const nameBan = conn.server.bans.findNameBan(username);
+  const ipBan = conn.server.bans.findIpBan(conn.socket.remoteAddress ?? "");
+  const ban = nameBan ?? ipBan;
+  if (ban) {
+    logger.info(`Turned away banned ${nameBan ? "name" : "address"}: ${username} from ${conn.address}`);
+    conn.disconnect(banMessage(ban));
     return;
   }
   if (conn.server.getOnlinePlayers().length >= config.maxPlayers) {
