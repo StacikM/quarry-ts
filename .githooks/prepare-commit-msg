@@ -1,0 +1,5 @@
+#!/bin/sh
+# Include both collaborators on every commit, without duplicating existing trailers.
+git interpret-trailers --in-place --if-exists addIfDifferent \
+  --trailer 'Co-authored-by: Claude <noreply@anthropic.com>' \
+  --trailer 'Co-authored-by: Codex <noreply@openai.com>' "$1"
