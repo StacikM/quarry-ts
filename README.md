@@ -16,9 +16,9 @@ npm start          # run the compiled code
 
 In Minecraft 1.8.9: Multiplayer, then Add Server, then `localhost`.
 
-**Before you play:** create a file called `ops.json` in the folder you start the server from, containing your Minecraft username, like `["YourName"]`. Operators can use `/gamemode` and `/tp` and can build inside the spawn protection area. The file is ignored by git, so your name is never committed. Everything else you may want to change is in [src/config.ts](src/config.ts): the seed, the port, the MOTD, view distance, and whether the world is `"natural"` or `"flat"`.
+**Before you play:** type `op YourMinecraftName` in the server console (it saves the name to an `ops.json` file in the folder you start the server from, which you can also edit by hand, like `["YourName"]`). Operators can use `/gamemode` and `/tp` and can build inside the spawn protection area. The file is ignored by git, so your name is never committed. Everything else you may want to change is in [src/config.ts](src/config.ts): the seed, the port, the MOTD, view distance, and whether the world is `"natural"` or `"flat"`.
 
-Server console commands: `save` writes the world to disk now, `stop` saves and shuts down, and anything else you type is sent to everyone as chat. If the world cannot be saved (disk full, folder not writable), `stop` keeps the server running and tells you; fix the problem and run `stop` again. `stop force` (or pressing Ctrl+C a second time) quits anyway and loses the unsaved changes.
+Server console commands (type them in the terminal where the server runs; `help` lists them): `op <name>` and `deop <name>` give and take away operator status, `ops` lists operators, `say <message>` talks to everyone, `list` shows who is online, `save` writes the world to disk now, and `stop` saves and shuts down. Text that isn't a command is NOT sent to players, so a typo can't become public chat. If the world cannot be saved (disk full, folder not writable), `stop` keeps the server running and tells you; fix the problem and run `stop` again. `stop force` (or pressing Ctrl+C a second time) quits anyway and loses the unsaved changes.
 
 In-game commands: `/help` lists everything. Built in: `/list`, `/gamemode`, `/spawn`, `/tp`, `/plugins`, `/seed`. From the bundled plugins: `/sethome`, `/home`, `/warp`, `/warps`, `/setwarp`, `/rules`.
 

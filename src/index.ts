@@ -1,13 +1,13 @@
 import readline from "node:readline";
 import { MinecraftServer } from "./game/Server";
+import { runConsoleCommand } from "./consoleCommands";
 import { logger } from "./util/logger";
 
 /**
  * Entry point. Starts the server and lets you type in the console:
  *   stop         -> saves the world and shuts the server down
  *   stop force   -> shuts down even if some changes could not be saved
- *   save         -> saves the world right now
- *   anything     -> sent to everyone as a [Server] chat message
+ * Everything else (say, op, deop, ops, list, save, help) is in consoleCommands.ts.
  */
 logger.info("Quarry.ts: Minecraft 1.8.9 server");
 const server = new MinecraftServer();
@@ -21,11 +21,8 @@ consoleInput.on("line", (line) => {
     shutdown(false);
   } else if (text === "stop force") {
     shutdown(true);
-  } else if (text === "save") {
-    const { failed } = server.saveWorld({ quiet: false });
-    if (failed > 0) logger.error(`${failed} chunk(s) could not be saved.`);
-  } else if (text.length > 0) {
-    server.broadcastMessage(`[Server] ${text}`, "light_purple");
+  } else {
+    runConsoleCommand(server, text);
   }
 });
 
@@ -62,4 +59,4 @@ function shutdown(force: boolean): void {
 // Ctrl+C. Pressing it a second time while we are already stopping means "force".
 process.on("SIGINT", () => shutdown(stopping));
 
-logger.info("Type 'stop' to shut down.");
+logger.info("Type 'help' for console commands, 'stop' to shut down.");

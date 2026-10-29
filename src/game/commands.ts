@@ -2,6 +2,7 @@ import type { Player } from "./Player";
 import { GameMode } from "./GameMode";
 import type { PluginCommand } from "../plugins/types";
 import { config } from "../config";
+import { addOperator, removeOperator } from "./operators";
 
 /**
  * The commands that come with the server. They are registered in the same
@@ -76,6 +77,40 @@ export const coreCommands: PluginCommand[] = [
       }
       player.teleport(target.x, target.y, target.z);
       player.sendMessage(`Teleported to ${target.username}`, "green");
+    },
+  },
+
+  {
+    name: "op",
+    usage: "/op <player name>",
+    description: "Make a player an operator",
+    opOnly: true,
+    run(player, args) {
+      const result = args.length === 1 ? addOperator(args[0]) : "invalid";
+      if (result === "invalid") player.sendMessage(`Usage: ${this.usage} (a valid Minecraft name)`, "red");
+      else if (result === "already") player.sendMessage(`${args[0]} is already an operator.`, "yellow");
+      else {
+        player.sendMessage(`${args[0]} is now an operator.`, "green");
+        player.server.getPlayerByName(args[0])?.sendMessage("You are now an operator.", "yellow");
+      }
+    },
+  },
+
+  {
+    name: "deop",
+    usage: "/deop <player name>",
+    description: "Remove a player's operator status",
+    opOnly: true,
+    run(player, args) {
+      if (args.length !== 1) {
+        player.sendMessage(`Usage: ${this.usage}`, "red");
+        return;
+      }
+      if (removeOperator(args[0]) === "not-an-operator") player.sendMessage(`${args[0]} is not an operator.`, "yellow");
+      else {
+        player.sendMessage(`${args[0]} is no longer an operator.`, "green");
+        player.server.getPlayerByName(args[0])?.sendMessage("You are no longer an operator.", "yellow");
+      }
     },
   },
 

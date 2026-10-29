@@ -343,6 +343,69 @@ async function main(): Promise<void> {
       assert.strictEqual(op.player.gameMode, GameMode.Adventure, "bad input '" + typed + "' must change nothing");
     }
     console.log("ok /gamemode: operators only, accepts 0-3, s/c/a/sp and full names, rejects the rest");
+
+    // ---------------------------------------------------- operators: op / deop / console
+    const { addOperator, removeOperator } = await import("../src/game/operators");
+    const { runConsoleCommand } = await import("../src/consoleCommands");
+    const opsOnDisk = (): string[] => JSON.parse(fs.readFileSync("ops.json", "utf8"));
+
+    assert.strictEqual(addOperator("Alice"), "added");
+    assert.deepStrictEqual(opsOnDisk(), ["OpUser", "Alice"], "the new operator must be written to ops.json");
+    assert.deepStrictEqual(config.ops, ["OpUser", "Alice"], "and be active immediately");
+    assert.strictEqual(addOperator("ALICE"), "already", "names are compared ignoring capitals");
+    for (const bad of ["", "two words", "a".repeat(17), "semi;colon", "../etc"]) {
+      assert.strictEqual(addOperator(bad), "invalid", "'" + bad + "' is not a Minecraft name");
+    }
+    assert.deepStrictEqual(opsOnDisk(), ["OpUser", "Alice"], "invalid names must not touch the file");
+    assert.strictEqual(removeOperator("alice"), "removed");
+    assert.deepStrictEqual(opsOnDisk(), ["OpUser"]);
+    assert.strictEqual(removeOperator("alice"), "not-an-operator");
+
+    // If ops.json can't be written, the operator list must stay as it was (no half-applied change).
+    const realRename = fs.renameSync;
+    (fs as { renameSync: unknown }).renameSync = () => {
+      throw new Error("disk full");
+    };
+    try {
+      assert.throws(() => addOperator("Mallory"), /disk full/);
+    } finally {
+      (fs as { renameSync: unknown }).renameSync = realRename;
+    }
+    assert.deepStrictEqual(config.ops, ["OpUser"], "a failed write must not change the operator list");
+    console.log("ok operators: saved to ops.json, case-insensitive, invalid names refused, failed write changes nothing");
+
+    // The console: commands work, and text that is not a command never reaches players.
+    const listener = join("Listener", "3");
+    const chatSeen = (): string[] => listener.said.filter((m) => !/operator/.test(m));
+    listener.said.length = 0;
+    quiet(() => runConsoleCommand(server, "say hello everyone"));
+    assert.ok(listener.said.includes("[Server] hello everyone"), "say must reach players");
+    listener.said.length = 0;
+    for (const typo of ["op", "hello there friend", "opp Listener", "deop", "op two words", "say"]) {
+      quiet(() => runConsoleCommand(server, typo));
+    }
+    assert.deepStrictEqual(chatSeen(), [], "typos and unknown commands must NOT be sent to players as chat");
+    assert.deepStrictEqual(config.ops, ["OpUser"], "and must not change operators");
+
+    quiet(() => runConsoleCommand(server, "op Listener"));
+    assert.ok(config.ops.includes("Listener"), "console op must work");
+    assert.ok(listener.said.some((m) => /now an operator/.test(m)), "the player must be told");
+    listener.player.gameMode = GameMode.Survival;
+    runCommand(listener.player as never, "gamemode c");
+    assert.strictEqual(listener.player.gameMode, GameMode.Creative, "a newly promoted player can use operator commands at once");
+    quiet(() => runConsoleCommand(server, "deop LISTENER"));
+    assert.ok(!config.ops.includes("Listener"));
+    runCommand(listener.player as never, "gamemode s");
+    assert.strictEqual(listener.player.gameMode, GameMode.Creative, "and loses them at once when removed");
+
+    // In game: operators can promote, other players cannot.
+    runCommand(op.player as never, "op Dana");
+    assert.ok(config.ops.includes("Dana"), "/op by an operator");
+    runCommand(visitor.player as never, "op Visitor");
+    assert.ok(!config.ops.includes("Visitor"), "a player cannot make themselves an operator");
+    runCommand(op.player as never, "deop Dana");
+    assert.ok(!config.ops.includes("Dana"), "/deop by an operator");
+    console.log("ok console: say / op / deop work, typos are never sent to players, in-game /op needs operator");
   }
 
   console.log("ALL CORE CHECKS PASS");

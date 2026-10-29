@@ -5,8 +5,8 @@ import { LoginIn } from "../packetIds";
 import { loginSuccess } from "../clientbound";
 import { config, PROTOCOL_VERSION, VERSION_NAME } from "../../config";
 import { offlineUUID } from "../../util/uuid";
+import { VALID_USERNAME } from "../../util/username";
 
-const VALID_USERNAME = /^[A-Za-z0-9_]{1,16}$/;
 
 /**
  * Logging in, "offline mode" style: we trust whatever name the client sends.
