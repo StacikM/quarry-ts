@@ -13,6 +13,7 @@ import {
   removeOtherDoorHalf,
   toggleDoor,
 } from "../../game/doors";
+import { breakUnsupported, canSurvive, placementMetadata, upperHalfMetadata } from "../../game/support";
 import { GameMode } from "../../game/GameMode";
 import { FACE_OFFSETS, type BlockPosition } from "../../world/BlockPosition";
 import { Block, MAX_BLOCK_ID } from "../../world/blocks";
@@ -168,6 +169,7 @@ function handleDigging(player: Player, reader: PacketReader): void {
   if (isDoorBlock(blockId)) {
     removeOtherDoorHalf(player.server, pos, blockId, metadata); // a door is two blocks: take both
   }
+  breakUnsupported(player.server, pos); // plants, torches... that stood on it break too
 }
 
 function handleBlockPlacement(player: Player, reader: PacketReader): void {
@@ -215,7 +217,13 @@ function handleBlockPlacement(player: Player, reader: PacketReader): void {
     return;
   }
 
-  const metadata = item.damage & 0xf; // e.g. wool colour, wood type
+  // The metadata is the wool colour or wood type the item says; torches and ladders get the side they are put on.
+  const metadata = placementMetadata(item.itemId, face, item.damage);
+  if (metadata === null || !canSurvive(world, target, item.itemId, metadata)) {
+    // Not where it could stay (a flower on stone, a torch on a ceiling): the client drew it anyway, so take it away.
+    player.send(blockChange(target, world.getBlockId(target), world.getBlockMetadata(target)));
+    return;
+  }
   const event = player.server.plugins.events.emit("blockPlace", {
     player,
     position: target,
@@ -229,6 +237,9 @@ function handleBlockPlacement(player: Player, reader: PacketReader): void {
   }
 
   player.server.setBlock(target, item.itemId, metadata);
+  const upperMeta = upperHalfMetadata(item.itemId, metadata); // tall flowers: two blocks
+  const upperPos = { x: target.x, y: target.y + 1, z: target.z };
+  if (upperMeta !== null && isInWorld(upperPos) && world.getBlockId(upperPos) === Block.Air) player.server.setBlock(upperPos, item.itemId, upperMeta);
 }
 
 /** Doors can only be placed on top of a block (face 1), and need room for both halves. */

@@ -1,1 +1,4 @@
 .githooks/* text eol=lf
+# Scripts that run on Linux must keep LF line endings, Windows batch files need CRLF.
+*.sh text eol=lf
+*.bat text eol=crlf

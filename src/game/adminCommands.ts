@@ -1,3 +1,4 @@
+import { whitelistFor, enforceWhitelist } from "./whitelist";
 import v8 from "node:v8";
 import type { CommandSender, PluginCommand } from "../plugins/types";
 import type { MinecraftServer } from "./Server";
@@ -28,7 +29,11 @@ function formatDuration(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  return hours > 0 ? `${hours}h ${minutes}m ${seconds}s` : minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  return hours > 0
+    ? `${hours}h ${minutes}m ${seconds}s`
+    : minutes > 0
+      ? `${minutes}m ${seconds}s`
+      : `${seconds}s`;
 }
 
 /** Ticks per second, how long each tick takes, and how long the program stalls. */
@@ -49,7 +54,9 @@ function tpsLines(server: MinecraftServer): string[] {
         `worst ${loop.maxMs.toFixed(1)} ms`,
     );
     if (loop.maxMs > 100) {
-      lines.push(`${colour.yellow}A stall over 50 ms freezes everyone for a moment. Generating many new chunks at once is the usual cause.`);
+      lines.push(
+        `${colour.yellow}A stall over 50 ms freezes everyone for a moment. Generating many new chunks at once is the usual cause.`,
+      );
     }
   }
   return lines;
@@ -78,7 +85,8 @@ function memoryLines(server: MinecraftServer): string[] {
 /** Where the processor time went: generating and lighting chunks. */
 function workLines(server: MinecraftServer): string[] {
   const t = server.world.timings;
-  const average = (total: number, count: number): string => (count === 0 ? "0.00" : (total / count).toFixed(2));
+  const average = (total: number, count: number): string =>
+    count === 0 ? "0.00" : (total / count).toFixed(2);
   return [
     `${colour.gray}Chunks generated: ${colour.white}${t.chunksGenerated}${colour.gray} (average ${average(t.generateMs, t.chunksGenerated)} ms, ` +
       `slowest ${t.generateMaxMs.toFixed(2)} ms)`,
@@ -154,7 +162,10 @@ const moderationCommands: PluginCommand[] = [
       const target = sender.server.getPlayerByName(args[0]);
       if (!target) return sender.sendMessage(`${args[0]} is not online.`, "red");
       if (isProtectedFrom(sender, target.username)) {
-        return sender.sendMessage("You can't kick an operator. Remove their operator status with /deop first.", "red");
+        return sender.sendMessage(
+          "You can't kick an operator. Remove their operator status with /deop first.",
+          "red",
+        );
       }
 
       const reason = cleanReason(args.slice(1).join(" "), "Kicked by an operator.");
@@ -172,7 +183,10 @@ const moderationCommands: PluginCommand[] = [
       const name = args[0];
       if (!name || !VALID_USERNAME.test(name)) return sendUsage(sender, "ban <player name> [reason]");
       if (isProtectedFrom(sender, name)) {
-        return sender.sendMessage("You can't ban an operator. Remove their operator status with /deop first.", "red");
+        return sender.sendMessage(
+          "You can't ban an operator. Remove their operator status with /deop first.",
+          "red",
+        );
       }
 
       const reason = cleanReason(args.slice(1).join(" "), "Banned by an operator.");
@@ -190,7 +204,10 @@ const moderationCommands: PluginCommand[] = [
       const record = bans.findNameBan(name);
       if (online && record) {
         online.kick(banMessage(record));
-        sender.sendMessage(`Tip: they can come back under a new name. To block their address too, use: banip ${online.username}`, "gray");
+        sender.sendMessage(
+          `Tip: they can come back under a new name. To block their address too, use: banip ${online.username}`,
+          "gray",
+        );
       }
     },
   }),
@@ -220,11 +237,15 @@ const moderationCommands: PluginCommand[] = [
 
       const server = sender.server;
       const address = isIpAddress(args[0]) ? normalizeIp(args[0]) : server.getPlayerByName(args[0])?.ip;
-      if (!address) return sender.sendMessage("Give an IP address, or the name of a player who is online.", "red");
+      if (!address)
+        return sender.sendMessage("Give an IP address, or the name of a player who is online.", "red");
 
       const affected = server.getOnlinePlayers().filter((p) => p.ip === address);
       if (!sender.isConsole && affected.some((p) => isOperatorName(p.username))) {
-        return sender.sendMessage("That address belongs to an operator, so you can't ban it from in game.", "red");
+        return sender.sendMessage(
+          "That address belongs to an operator, so you can't ban it from in game.",
+          "red",
+        );
       }
 
       const reason = cleanReason(args.slice(1).join(" "), "Your address is banned by an operator.");
@@ -243,7 +264,10 @@ const moderationCommands: PluginCommand[] = [
       sender.sendMessage(`Banned ${address}. ${affected.length} online player(s) were kicked.`, "green");
       logger.info(`${sender.name} banned IP ${address}: ${reason}`);
       if (address === "127.0.0.1" || address === "::1") {
-        sender.sendMessage("Warning: that is this computer's own address, so everyone playing from it is blocked.", "yellow");
+        sender.sendMessage(
+          "Warning: that is this computer's own address, so everyone playing from it is blocked.",
+          "yellow",
+        );
       }
     },
   }),
@@ -257,7 +281,12 @@ const moderationCommands: PluginCommand[] = [
       if (args.length !== 1 || !isIpAddress(args[0])) return sendUsage(sender, "unbanip <IP address>");
       try {
         const result = sender.server.bans.unbanIp(args[0]);
-        sender.sendMessage(result === "unbanned" ? `Unbanned ${normalizeIp(args[0])}.` : `${normalizeIp(args[0])} is not banned.`, result === "unbanned" ? "green" : "yellow");
+        sender.sendMessage(
+          result === "unbanned"
+            ? `Unbanned ${normalizeIp(args[0])}.`
+            : `${normalizeIp(args[0])} is not banned.`,
+          result === "unbanned" ? "green" : "yellow",
+        );
       } catch (err) {
         reportSaveFailure(sender, "the ban was not lifted", err);
       }
@@ -275,13 +304,17 @@ const moderationCommands: PluginCommand[] = [
       const LIMIT = 15;
       const lines = [`${colour.gold}Banned names (${names.length}):`];
       for (const ban of names.slice(0, LIMIT)) {
-        lines.push(`${colour.gray}- ${colour.white}${ban.name}${colour.gray}: ${ban.reason} (by ${ban.by}, ${ban.date.slice(0, 10)})`);
+        lines.push(
+          `${colour.gray}- ${colour.white}${ban.name}${colour.gray}: ${ban.reason} (by ${ban.by}, ${ban.date.slice(0, 10)})`,
+        );
       }
       if (names.length > LIMIT) lines.push(`${colour.gray}... and ${names.length - LIMIT} more`);
 
       lines.push(`${colour.gold}Banned addresses (${ips.length}):`);
       for (const ban of ips.slice(0, LIMIT)) {
-        lines.push(`${colour.gray}- ${colour.white}${ban.ip}${colour.gray}: ${ban.reason} (by ${ban.by}, ${ban.date.slice(0, 10)})`);
+        lines.push(
+          `${colour.gray}- ${colour.white}${ban.ip}${colour.gray}: ${ban.reason} (by ${ban.by}, ${ban.date.slice(0, 10)})`,
+        );
       }
       if (ips.length > LIMIT) lines.push(`${colour.gray}... and ${ips.length - LIMIT} more`);
       send(sender, lines);
@@ -304,6 +337,51 @@ function unban(sender: CommandSender, args: string[]): void {
 
 const otherCommands: PluginCommand[] = [
   senderCommand({
+    name: "whitelist",
+    description: "Manage who may join (changes also remove online non-listed non-operators)",
+    usage: "whitelist on|off|add <name>|remove <name>|list|reload",
+    opOnly: true,
+    run(sender, args) {
+      const usage = "whitelist on|off|add <name>|remove <name>|list|reload";
+      const action = args[0]?.toLowerCase();
+      if (
+        !action ||
+        !["on", "off", "add", "remove", "list", "reload"].includes(action) ||
+        args.length !== (action === "add" || action === "remove" ? 2 : 1)
+      )
+        return sendUsage(sender, usage);
+      try {
+        const list = whitelistFor(sender.server);
+        if (action === "list") {
+          sender.sendMessage(
+            `Whitelist ${list.enabled ? "ON" : "OFF"} (${list.list().length}): ${list.list().join(", ") || "(empty)"}`,
+          );
+          return;
+        }
+        let result = "";
+        if (action === "on" || action === "off") {
+          list.setEnabled(action === "on");
+          result = `Whitelist ${action.toUpperCase()}.`;
+        } else if (action === "reload") {
+          list.reload();
+          result = "Whitelist reloaded.";
+        } else if (action === "add") {
+          const added = list.add(args[1]);
+          if (added === "invalid")
+            return sender.sendMessage("Invalid Minecraft name (1-16 letters, digits or underscore).", "red");
+          result = added === "added" ? `Added ${args[1]}.` : `${args[1]} is already listed.`;
+        } else result = list.remove(args[1]) ? `Removed ${args[1]}.` : `${args[1]} was not listed.`;
+        const kicked = enforceWhitelist(sender.server);
+        sender.sendMessage(`${result} Kicked ${kicked} online non-listed non-operator(s).`, "green");
+      } catch (error) {
+        sender.sendMessage(
+          `Whitelist update failed: ${formatError(error).split("\n")[0]}. Existing in-memory rules were kept.`,
+          "red",
+        );
+      }
+    },
+  }),
+  senderCommand({
     name: "say",
     usage: "say <message>",
     description: "Broadcast a message to everyone",
@@ -311,7 +389,10 @@ const otherCommands: PluginCommand[] = [
     run(sender, args) {
       const message = cleanReason(args.join(" "), "");
       if (!message) return sendUsage(sender, "say <message>");
-      sender.server.broadcastMessage(`[${sender.isConsole ? "Server" : sender.name}] ${message}`, "light_purple");
+      sender.server.broadcastMessage(
+        `[${sender.isConsole ? "Server" : sender.name}] ${message}`,
+        "light_purple",
+      );
     },
   }),
 
@@ -321,7 +402,8 @@ const otherCommands: PluginCommand[] = [
     opOnly: true,
     run(sender) {
       const { saved, failed } = sender.server.saveWorld({ quiet: true });
-      if (failed > 0) sender.sendMessage(`${failed} chunk(s) could NOT be saved. Check the server console.`, "red");
+      if (failed > 0)
+        sender.sendMessage(`${failed} chunk(s) could NOT be saved. Check the server console.`, "red");
       else sender.sendMessage(`World saved (${saved} chunk file(s) written).`, "green");
     },
   }),

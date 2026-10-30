@@ -20,6 +20,26 @@ What it is **not**: it has not had a human code review or a security audit, it h
 
 *This is an unofficial project. It is not affiliated with, endorsed by or connected to Mojang Studios or Microsoft. "Minecraft" is a trademark of Mojang Studios.*
 
+## Installing a server
+
+The interactive installer checks for Node.js 24 or newer, installs and builds Quarry.ts, and asks for the port, server-list text, player limit, view distance, world type, seed, operators and whitelist:
+
+- **Windows:** double-click `install.bat`.
+- **Linux/macOS:** run `bash install.sh`.
+
+Answers are stored in `server.json` and, when provided, `ops.json`. Run `node scripts/setup.cjs` to answer again, or edit the JSON directly:
+
+```json
+{ "port": 25565, "motd": "My 1.8.9 server", "maxPlayers": 50, "viewDistance": 6,
+  "generator": "natural", "seed": 1234, "whitelist": true }
+```
+
+Every key is optional. This Minecraft 1.8.9 branch supports `natural` and `flat` generators. Without a configured seed, each server generates a random one on first start and keeps it in `world/seed.txt`, so it reuses the world after restart. Text seeds are supported too. For an existing seed-1337 world, set `"seed": 1337` before starting. Save folders remain `world/<generator>-<seed>`.
+
+Hosting panels can supply environment variables: `QUARRY_PORT` (or `SERVER_PORT`), `QUARRY_MOTD`, `QUARRY_MAX_PLAYERS`, `QUARRY_VIEW_DISTANCE`, `QUARRY_GENERATOR`, `QUARRY_SEED`, `QUARRY_WHITELIST` and comma-separated `QUARRY_OPS`. Environment values take priority over `server.json`; an empty variable is treated as unset. A true whitelist startup setting forces protection on; false/absent preserves the flag saved by the whitelist command.
+
+For **Pterodactyl**, import [pterodactyl/egg-quarry-ts.json](pterodactyl/egg-quarry-ts.json) in the admin area (Nests, Import Egg), then create a server from it. The egg is named **Quarry.ts (Minecraft 1.8.9)** and installs the `main` branch by default. Reinstalling updates the program while keeping settings/world files. Regenerate the egg with `node pterodactyl/build-egg.cjs` after changing its installer or variables.
+
 ## Running it
 
 ```sh
@@ -33,7 +53,7 @@ npm run play       # build and start the server: use this to actually play
 
 In Minecraft 1.8.9: Multiplayer, then Add Server, then `localhost`.
 
-**Before you play:** type `op YourMinecraftName` in the server console (it saves the name to an `ops.json` file in the folder you start the server from, which you can also edit by hand, like `["YourName"]`). Operators can use `/gamemode` and `/tp` and can build inside the spawn protection area. The file is ignored by git, so your name is never committed. Everything else you may want to change is in [src/config.ts](src/config.ts): the seed, the port, the MOTD, view distance, and whether the world is `"natural"` or `"flat"`.
+**Before you play:** type `op YourMinecraftName` in the server console (it saves the name to an `ops.json` file in the folder you start the server from, which you can also edit by hand, like `["YourName"]`). Operators can use `/gamemode` and `/tp` and can build inside the spawn protection area. The file is ignored by git, so your name is never committed. Set the seed, port, MOTD, view distance and world type in `server.json` or the environment (see Installing a server). Other runtime settings remain in [src/config.ts](src/config.ts).
 
 ## Commands
 
@@ -50,6 +70,7 @@ Type these in game with a `/` in front, or in the server console (the terminal w
 | `/unban <name>`, `/pardon <name>` | operators | Lift a name ban |
 | `/unbanip <IP>` | operators | Lift an address ban |
 | `/banlist` | operators | Show who is banned, by whom and when |
+| `/whitelist on\|off\|add <name>\|remove <name>\|list\|reload` | operators, console | Control who may join; changes kick online non-listed non-operators |
 | `/op <name>`, `/deop <name>`, `/ops` | operators | Give, take away and list operator status |
 | `/say <message>`, `/save`, `/list`, `/plugins`, `/seed` | operators / everyone | Broadcast, save the world now, who is online, plugins, world seed |
 | `/gamemode`, `/tp`, `/spawn` | in game only | Game mode (`c`, `s`, `a`, `sp` or 0-3), teleport to a player, go to spawn |
@@ -59,6 +80,12 @@ From the bundled plugins: `/sethome`, `/home`, `/warp`, `/warps`, `/setwarp`, `/
 **Bans:** they are saved in `bans.json` next to `ops.json` (both ignored by git). Names are very easy to change on this server because it does not check accounts, so a name ban stops casual griefing but a determined person just rejoins under another name. `/banip` is the stronger tool. Be careful with it on a home network: banning `127.0.0.1` blocks everyone playing on the same computer, and many people share one address behind a router. Operators cannot kick or ban other operators from in game; the console can.
 
 **Reading `/tps` and `/mem`:** the server runs 20 ticks a second. If it falls below about 15, something is keeping the program busy (usually generating a lot of new chunks at once, for example when someone flies fast). "Delays" shows the worst freezes, which TPS can hide. In `/mem`, "Whole process" is what Task Manager shows; the JavaScript heap has a limit (usually about 4 GB, raised with `node --max-old-space-size=8192`), and chunk data lives in "Buffers".
+
+## Whitelist
+
+Use `whitelist on|off|add <name>|remove <name>|list|reload` in the console, or `/whitelist ...` as an operator in game. Names are case-insensitive; operators bypass the whitelist and bans apply first. Successful changes immediately kick online non-listed non-operators and report the count.
+
+`whitelist.json` is private/git-ignored and stores `{ "enabled": false, "names": [] }`. Command changes survive restarts. `server.json` `"whitelist": true` or `QUARRY_WHITELIST=true` forces it on at startup; remove that setting if you want `/whitelist off` to stay off after restart. False/default defers to the persisted flag. Reloading a missing file does not disable an active whitelist. Invalid individual names are skipped; a damaged/unreadable document keeps current rules and rejects unlisted new logins, while operators can still log in to repair it. Offline names are not authenticated accounts.
 
 ## Checking that nothing broke
 
@@ -177,3 +204,5 @@ Two things to know:
 ## License
 
 [MIT](LICENSE), Copyright (c) 2026 Stacik. You may use, change and share it freely, including commercially, as long as the license text stays with it. It comes with no warranty.
+
+The server-feature backport is checked with the independent protocol-47 decoder and automated fixtures. A real Minecraft 1.8.9 client is not available for retesting this round; the earlier client testing above describes the pre-backport baseline.

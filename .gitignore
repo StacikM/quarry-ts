@@ -7,3 +7,7 @@
 /ops.json
 /bans.json
 /.coordination-watch/
+/server.json
+/whitelist.json
+/whitelist.json.corrupt*
+

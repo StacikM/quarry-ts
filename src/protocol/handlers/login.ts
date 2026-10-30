@@ -1,3 +1,5 @@
+import { whitelistFor, WHITELIST_MESSAGE } from "../../game/whitelist";
+import { isOperatorName } from "../../game/operators";
 import type { Connection } from "../../network/Connection";
 import { ConnectionState } from "../../network/ConnectionState";
 import type { PacketReader } from "../../network/PacketReader";
@@ -8,7 +10,6 @@ import { offlineUUID } from "../../util/uuid";
 import { VALID_USERNAME } from "../../util/username";
 import { banMessage } from "../../game/bans";
 import { logger } from "../../util/logger";
-
 
 /**
  * Logging in, "offline mode" style: we trust whatever name the client sends.
@@ -38,6 +39,16 @@ export function handleLogin(conn: Connection, packetId: number, reader: PacketRe
   if (ban) {
     logger.info(`Turned away banned ${nameBan ? "name" : "address"}: ${username} from ${conn.address}`);
     conn.disconnect(banMessage(ban));
+    return;
+  }
+  try {
+    if (!isOperatorName(username) && !whitelistFor(conn.server).allows(username)) {
+      conn.disconnect(WHITELIST_MESSAGE);
+      return;
+    }
+  } catch (error) {
+    logger.error(`Whitelist could not be loaded: ${String(error)}`);
+    conn.disconnect("The whitelist could not be loaded. Please contact an operator.");
     return;
   }
   if (conn.server.getOnlinePlayers().length >= config.maxPlayers) {

@@ -144,7 +144,7 @@ function isOpaqueFullCube(id: number): boolean {
  * Vanilla's "normal cube", used for the hinge: an opaque full cube that does not
  * provide redstone power. (Floor support below deliberately does NOT have the power rule.)
  */
-function isNormalCube(world: World, pos: BlockPosition): boolean {
+export function isNormalCube(world: World, pos: BlockPosition): boolean {
   const id = world.getBlockId(pos);
   return isOpaqueFullCube(id) && !POWER_BLOCKS.has(id);
 }
@@ -153,7 +153,7 @@ function isNormalCube(world: World, pos: BlockPosition): boolean {
  * Whether something can hold a door up (vanilla's "solid top surface"): a full
  * cube, an upside-down stair, a top-half slab, a hopper, or a full-height snow layer.
  */
-function hasSolidTopSurface(world: World, pos: BlockPosition): boolean {
+export function hasSolidTopSurface(world: World, pos: BlockPosition): boolean {
   const id = world.getBlockId(pos);
   const meta = world.getBlockMetadata(pos);
   if (isOpaqueFullCube(id)) return true;
