@@ -212,3 +212,29 @@ Two things to know:
 ## License
 
 [MIT](LICENSE), Copyright (c) 2026 Stacik. You may use, change and share it freely, including commercially, as long as the license text stays with it. It comes with no warranty.
+
+## Whitelist
+
+Use `whitelist on|off|add <name>|remove <name>|list|reload` from the console, or `/whitelist ...` as an operator in game. Names are case-insensitive; operators bypass the whitelist. Every successful change immediately kicks online non-listed non-operators, and the reply reports how many were kicked. Bans still apply first.
+
+`whitelist.json` stores `{ "enabled": false, "names": [] }` and is private/git-ignored. `/whitelist on` and `/whitelist off` survive restarts. Setting `"whitelist": true` in `server.json` or `QUARRY_WHITELIST=true` forces it on at startup; remove that forced-on setting if you want `/whitelist off` to remain off after restart. False/default installer and panel settings defer to the persisted flag. `reload` reads edits to the file; malformed entries are skipped, while unreadable/malformed documents retain the existing rules and reject unlisted logins rather than disable protection. Operators can still log in to repair the file.
+
+## Moving your FancyNpcs NPCs
+
+Copy `plugins/FancyNpcs/npcs.yml` from Paper into the private `migrate/` directory. With the server stopped, run:
+
+```text
+npx tsx scripts/migrate-fancynpcs.ts migrate/npcs.yml --out plugins-data/npcs.json
+```
+
+The migrator refuses to overwrite existing output: choose another `--out` name to inspect/compare a second migration. It reports migrated/skipped NPCs, unsupported actions and fields that require attention. Review the report and each NPC's `leftovers` before starting the server. Source files, texture signatures and generated `plugins-data/` remain private; do not commit them.
+
+Verified against the upstream [v2.2.0 serializer](https://github.com/FancyMcPlugins/FancyNpcs/blob/v2.2.0/src/main/java/de/oliver/fancynpcs/NpcManagerImpl.java) and [v2.4.4 serializer](https://github.com/FancyMcPlugins/FancyNpcs/blob/v2.4.4/src/main/java/de/oliver/fancynpcs/NpcManagerImpl.java): both use an `npcs` map keyed by id, with location coordinates and MiniMessage display names. 2.2 uses `playerCommands`, `serverCommands` and `messages`; 2.4.4 uses ordered `actions.ANY_CLICK|LEFT_CLICK|RIGHT_CLICK.<number>.action/value`. The newer stored ANY_CLICK chain replaces legacy lists. [Wait actions](https://github.com/FancyMcPlugins/FancyNpcs/blob/v2.4.4/api/src/main/java/de/oliver/fancynpcs/api/actions/types/WaitAction.java) use seconds, converted to cumulative delayed ticks; interaction cooldown seconds become milliseconds.
+
+Only PLAYER NPCs with supported coordinates are spawned. Source world names are retained with a warning: Quarry serves one world, so verify the destination map and positions. Colors/styles are converted to section-sign text; gradients use their first color. MiniMessage hover/click events, full gradient rendering, arbitrary PlaceholderAPI expressions, non-player entities, equipment, tab-list visibility overrides, mirror skins and advanced conditions are not implemented. Unknown fields/actions remain in `leftovers` and are reported. Unsupported permission/random/control-flow chains are skipped as a whole so their conditions are not accidentally bypassed; `player_command_as_op` is reported and skipped instead of granting temporary operator status. Use an explicit, reviewed console action if that is what you intend.
+
+Embedded skin `value` and optional `signature` are copied exactly. 2.4.4 normally stores only `skin.identifier` and `variant`; those NPCs keep `skinName`, and the plugin warns that a texture refresh is needed. There is no Mojang/skin-service lookup and no invented skin data. Later FancyNpcs versions and third-party action extensions have not been verified; review their migration report before use.
+
+The built-in `npcs` plugin loads `plugins-data/npcs.json` at startup. `/npc list`, `/npc create <id> [name]`, `/npc remove <id>`, `/npc tp <id>` (move NPC to you), `/npc name <id> <text>` and `/npc skin <id> <value> <signature>` are operator commands. Edits save immediately. `/npc action add <id> left|right|any <type> <value...> [--delay <ticks>]` adds an action; `/npc action list <id>` and `/npc action remove <id> <1-based-index>` manage it. Types: `player_command`, `console_command`, `message`, `title`, `actionbar`, `server`, `teleport`. `{player}` expands to the interacting player's name. Title values use `title|subtitle`; teleport values are `x y z`; server values are proxy backend names. Player commands retain the player's normal permissions. Delayed actions are cancelled on plugin disable and skipped when the player disconnects or NPC is removed. Invalid saved NPC data disables this plugin without overwriting that file.
+
+NPC scale is retained by migration but is not yet rendered by the current core; non-default scale is reported for review.

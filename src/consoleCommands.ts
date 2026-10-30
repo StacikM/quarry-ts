@@ -6,7 +6,7 @@ import { formatError, logger } from "./util/logger";
  * `stop` and `stop force` are handled in index.ts because they end the process.
  *
  * Every other command is looked up in the SAME command list that players use,
- * so /kick, /ban, /tps, /op and so on work identically here. Commands that
+ * so /kick, /ban, /whitelist, /tps, /op and so on work identically here. Commands that
  * need a player (like /tp) are game only. The leading "/" is optional.
  *
  * Anything that is not a command is NOT sent to players: a typo should not

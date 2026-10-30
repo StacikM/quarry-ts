@@ -15,17 +15,21 @@ process.chdir(directory);
 async function main(): Promise<void> {
   // Import after chdir: the manager's plugin/data folders resolve inside the fixture.
   const { PluginManager } = await import("../src/plugins/PluginManager");
+  const { NpcManager } = await import('../src/game/NpcManager');
   const { runCommand } = await import("../src/game/commands");
   const { handlePlay } = await import("../src/protocol/handlers/play");
   const { PlayIn } = await import("../src/protocol/packetIds");
   const messages: string[] = [], broadcasts: string[] = [];
   const players: any[] = [];
+  let nextEntityId = 1;
   const server: any = {
+    allocateEntityId: () => nextEntityId++,
+    getOnlinePlayers: () => players,
     getSpawnPoint: () => ({ x: 0.5, y: 73, z: 0.5 }),
     getPlayerByName: (name: string) => players.find((p) => p.username.toLowerCase() === name.toLowerCase()),
     broadcastMessage: (text: string) => broadcasts.push(text),
-    npcs: { forOwner: () => ({}), removeOwned: () => {} },
   };
+  server.npcs = new NpcManager(server);
   const manager = new PluginManager(server);
   server.plugins = manager;
   const alice: any = {

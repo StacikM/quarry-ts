@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+const root=process.cwd(), temp=fs.mkdtempSync(path.join(root,'.npcs-plugin-check-'));
+process.chdir(temp);
+async function main() {
+  const {PluginManager}=await import('../src/plugins/PluginManager');
+  const {NpcManager}=await import('../src/game/NpcManager');
+  const {npcsPlugin}=await import('../src/plugins/builtin/npcs');
+  const {runCommand}=await import('../src/game/commands');
+  const messages:string[]=[], servers:string[]=[], consoleCommands:string[]=[];
+  let serial=0; const online:any[]=[];
+  const server:any={allocateEntityId:()=>++serial,getOnlinePlayers:()=>online,getPlayerByName:(n:string)=>online.find(p=>p.username===n)};
+  server.npcs=new NpcManager(server); server.plugins=new PluginManager(server);
+  const manager=server.plugins;
+  server.console={server,name:'Console',isConsole:true,isOp:true,sendMessage:(s:string)=>messages.push(s)};
+  manager.commands.register('core',{name:'testconsole',description:'fixture',run:()=>{},runConsole:(_s:any,a:string[])=>consoleCommands.push(a.join(' '))});
+  const player:any={server,username:'ExamplePlayer',uuid:'example-id',entityId:1000,x:1,y:73,z:2,yaw:90,pitch:20,isOp:true,
+    send:()=>{},sendMessage:(s:string)=>messages.push(s),sendTitle:(s:string,t:string)=>messages.push(`title:${s}|${t}`),sendActionBar:(s:string)=>messages.push(`bar:${s}`),
+    connectToServer:(s:string)=>servers.push(s),teleport(x:number,y:number,z:number){this.x=x;this.y=y;this.z=z;}};
+  online.push(player);
+  manager.enable(npcsPlugin); assert(manager.getEnabledNames().includes('npcs'));
+  runCommand(player,'npc create guide <gold>Guide');
+  const getNpc=()=>server.npcs.forOwner('npcs').get('guide');
+  assert.equal(getNpc().definition.name,'§6Guide'); assert.equal(getNpc().definition.yaw,90);
+  for(const action of ['right message hello {player}','left server survival','right title Welcome|Lobby','right actionbar Above','right console_command testconsole {player}','right player_command testplayer {player}','right teleport 10 80 20']) runCommand(player,`npc action add guide ${action}`);
+  const playerCommands:string[]=[];
+  manager.commands.register('core',{name:'testplayer',description:'fixture',run:(_p:any,a:string[])=>playerCommands.push(a.join(' '))});
+  server.npcs.handleInteract(player,getNpc().entityId,'right',false);
+  assert(messages.includes('hello ExamplePlayer')); assert(messages.includes('title:Welcome|Lobby')); assert(messages.includes('bar:Above'));
+  assert.deepEqual(consoleCommands,['ExamplePlayer']); assert.deepEqual(playerCommands,['ExamplePlayer']);
+  assert.equal(player.x,10); assert.equal(player.y,80); assert.equal(player.z,20); assert.equal(servers.length,0);
+  server.npcs.handleInteract(player,getNpc().entityId,'left',false); assert.deepEqual(servers,['survival']);
+  runCommand(player,'npc tp guide'); assert.equal(getNpc().definition.position.x,10,messages.join('\n'));
+  runCommand(player,'npc name guide <green>New'); assert.equal(getNpc().definition.name,'§aNew');
+  runCommand(player,'npc skin guide dGV4dHVyZQ== c2ln'); assert.equal(getNpc().definition.skin.signature,'c2ln');
+  const saved=JSON.parse(fs.readFileSync('plugins-data/npcs.json','utf8')); saved.npcs[0].cooldownMs=60_000;
+  fs.writeFileSync('plugins-data/npcs.json',JSON.stringify(saved));
+  manager.disable('npcs'); manager.enable(npcsPlugin);
+  messages.length=0; server.npcs.handleInteract(player,getNpc().entityId,'right',false); server.npcs.handleInteract(player,getNpc().entityId,'right',false);
+  assert.equal(messages.filter(s=>s==='hello ExamplePlayer').length,1,'per-player cooldown suppresses repeated clicks');
+  const other={...player,username:'OtherPlayer',uuid:'other-id'}; online.push(other);
+  server.npcs.handleInteract(other,getNpc().entityId,'right',false); assert(messages.includes('hello OtherPlayer'));
+  player.isOp=false; runCommand(player,'npc remove guide'); assert(getNpc(),'non-ops cannot edit NPCs'); player.isOp=true;
+  runCommand(player,'npc action add guide any message delayed --delay 2');
+  manager.events.emit('playerQuit',{player}); server.npcs.handleInteract(player,getNpc().entityId,'right',false);
+  online.splice(online.indexOf(player),1); for(let i=0;i<3;i++)manager.scheduler.tick(); assert(!messages.includes('delayed'),'delayed actions must not run for disconnected players');
+  online.push(player);
+  runCommand(player,'npc action remove guide 8');
+  runCommand(player,'npc remove guide'); assert.equal(getNpc(),undefined);
+  manager.disable('npcs'); fs.writeFileSync('plugins-data/npcs.json','{bad');
+  manager.enable(npcsPlugin); assert(!manager.getEnabledNames().includes('npcs'),'invalid persisted data must not be silently replaced');
+  assert.equal(fs.readFileSync('plugins-data/npcs.json','utf8'),'{bad');
+  manager.disableAll();
+  console.log('NPC plugin: real core spawn/edit/remove, persistence, all actions, permissions, cooldowns, delayed disconnect and invalid-file protection pass.');
+}
+main().finally(()=>{process.chdir(root);if(path.dirname(temp)!==root||!path.basename(temp).startsWith('.npcs-plugin-check-'))throw Error('Unsafe cleanup');fs.rmSync(temp,{recursive:true,force:true});});

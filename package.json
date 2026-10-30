@@ -10,7 +10,7 @@
     "play": "tsc && node dist/index.js",
     "dev": "tsx src/index.ts",
     "setup-git": "git config core.hooksPath .githooks",
-    "check": "tsc --noEmit && tsx scripts/blockstates-check.ts && tsx scripts/blockshapes-check.ts && tsx scripts/core-check.ts && tsx scripts/terrain-check.ts && tsx scripts/plugins-check.ts && tsx scripts/plugin-docs-check.ts && tsx scripts/light-data-check.ts && tsx scripts/lighting-check.ts && tsx scripts/doors-check.ts && tsx scripts/support-check.ts && tsx scripts/npc-check.ts && tsx scripts/protocol-check.ts && tsx scripts/admin-check.ts && tsx scripts/streaming-check.ts && tsx scripts/chunk-format-check.ts && tsx scripts/join-check.ts && tsx scripts/lobby-check.ts && tsx scripts/anvil-check.ts && tsx scripts/setup-check.ts && tsx scripts/egg-check.ts"
+    "check": "tsc --noEmit && tsx scripts/whitelist-check.ts && tsx scripts/yaml-check.ts && tsx scripts/migrate-fancynpcs-check.ts && tsx scripts/npcs-plugin-check.ts && tsx scripts/blockstates-check.ts && tsx scripts/blockshapes-check.ts && tsx scripts/core-check.ts && tsx scripts/terrain-check.ts && tsx scripts/plugins-check.ts && tsx scripts/plugin-docs-check.ts && tsx scripts/light-data-check.ts && tsx scripts/lighting-check.ts && tsx scripts/doors-check.ts && tsx scripts/support-check.ts && tsx scripts/npc-check.ts && tsx scripts/protocol-check.ts && tsx scripts/admin-check.ts && tsx scripts/streaming-check.ts && tsx scripts/chunk-format-check.ts && tsx scripts/join-check.ts && tsx scripts/lobby-check.ts && tsx scripts/anvil-check.ts && tsx scripts/setup-check.ts && tsx scripts/egg-check.ts"
   },
   "license": "MIT",
   "devDependencies": {

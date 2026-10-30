@@ -8,6 +8,7 @@ import { formatBytes, TARGET_TPS } from "./stats";
 import { isIpAddress, normalizeIp } from "../util/ip";
 import { VALID_USERNAME } from "../util/username";
 import { formatError, logger } from "../util/logger";
+import { whitelistFor, enforceWhitelist } from './whitelist';
 
 /**
  * Profiling commands (/tps, /mem, /perf) and moderation commands (/kick, /ban,
@@ -303,6 +304,30 @@ function unban(sender: CommandSender, args: string[]): void {
 // ---------------------------------------------------------------------- other
 
 const otherCommands: PluginCommand[] = [
+  senderCommand({
+    name: 'whitelist', description: 'Manage who may join (changes also remove online non-listed non-operators)',
+    usage: 'whitelist on|off|add <name>|remove <name>|list|reload', opOnly: true,
+    run(sender, args) {
+      const usage = 'whitelist on|off|add <name>|remove <name>|list|reload';
+      const action = args[0]?.toLowerCase();
+      if (!action || !['on','off','add','remove','list','reload'].includes(action)
+        || args.length !== (action === 'add' || action === 'remove' ? 2 : 1)) return sendUsage(sender, usage);
+      try {
+        const list = whitelistFor(sender.server);
+        if (action === 'list') { sender.sendMessage(`Whitelist ${list.enabled ? 'ON' : 'OFF'} (${list.list().length}): ${list.list().join(', ') || '(empty)'}`); return; }
+        let result = '';
+        if (action === 'on' || action === 'off') { list.setEnabled(action === 'on'); result = `Whitelist ${action.toUpperCase()}.`; }
+        else if (action === 'reload') { list.reload(); result = 'Whitelist reloaded.'; }
+        else if (action === 'add') {
+          const added = list.add(args[1]);
+          if (added === 'invalid') return sender.sendMessage('Invalid Minecraft name (1-16 letters, digits or underscore).', 'red');
+          result = added === 'added' ? `Added ${args[1]}.` : `${args[1]} is already listed.`;
+        } else result = list.remove(args[1]) ? `Removed ${args[1]}.` : `${args[1]} was not listed.`;
+        const kicked = enforceWhitelist(sender.server);
+        sender.sendMessage(`${result} Kicked ${kicked} online non-listed non-operator(s).`, 'green');
+      } catch (error) { sender.sendMessage(`Whitelist update failed: ${formatError(error).split('\n')[0]}. Existing in-memory rules were kept.`, 'red'); }
+    },
+  }),
   senderCommand({
     name: "say",
     usage: "say <message>",

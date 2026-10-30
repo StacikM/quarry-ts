@@ -21,6 +21,7 @@ function buildFiles(answers) {
     viewDistance: answers.viewDistance,
     generator: answers.generator,
     protectWorld: answers.protectWorld,
+    whitelist: answers.whitelist ?? false,
   };
   if (answers.seed !== undefined) server.seed = answers.seed;
   if (answers.mapFolder) server.mapFolder = answers.mapFolder;
@@ -114,11 +115,12 @@ async function interview(asker, say, defaultsOnly) {
     if (!typed) say(`  Made up the secret: ${velocitySecret}\n  Put exactly this in Velocity's forwarding.secret, and set player-info-forwarding-mode = "modern".`);
   }
 
+  const whitelist = await ask("  Use a whitelist?", "n", yesNo);
   say("\nOperators");
   const opsText = await ask("  Operator names, separated by commas (Enter for none)", "");
   const ops = opsText.split(",").map((name) => name.trim()).filter((name) => name !== "");
 
-  return { port, motd, maxPlayers, viewDistance, generator, seed, mapFolder, protectWorld, velocitySecret, ops };
+  return { port, motd, maxPlayers, viewDistance, generator, seed, mapFolder, protectWorld, velocitySecret, whitelist, ops };
 }
 
 async function main() {

@@ -30,6 +30,16 @@
     },
     "variables": [
         {
+            "name": "Whitelist",
+            "description": "Only listed names and operators may join. Manage names with whitelist add/remove in the console.",
+            "env_variable": "QUARRY_WHITELIST",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
             "name": "World type",
             "description": "natural (hills and trees), flat, or void (an empty world with a small platform, good for lobbies). Ignored when a map folder is set.",
             "env_variable": "QUARRY_GENERATOR",

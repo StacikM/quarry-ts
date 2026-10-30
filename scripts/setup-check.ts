@@ -32,7 +32,7 @@ function runSetup(cwd: string, answers: string[], args: string[] = []): string {
 
 /** The settings the server would run with in `cwd` (loaded in a separate process, as a real start would). */
 function loadConfig(cwd: string, env: Record<string, string> = {}): { status: number | null; config: any; stderr: string } {
-  const code = `import("${url("src", "config.ts")}").then((m) => console.log(JSON.stringify({ port: m.config.port, motd: m.config.motd, maxPlayers: m.config.maxPlayers, viewDistance: m.config.viewDistance, generator: m.config.generator, seed: m.config.seed, mapFolder: m.config.mapFolder, protect: m.config.lobby.protectWorld, velocity: m.config.velocity, ops: m.config.ops })))`;
+  const code = `import("${url("src", "config.ts")}").then((m) => console.log(JSON.stringify({ port: m.config.port, motd: m.config.motd, maxPlayers: m.config.maxPlayers, viewDistance: m.config.viewDistance, generator: m.config.generator, seed: m.config.seed, mapFolder: m.config.mapFolder, protect: m.config.lobby.protectWorld, whitelist: m.config.whitelist, velocity: m.config.velocity, ops: m.config.ops })))`;
   const cleanEnv = { ...process.env };
   for (const key of Object.keys(cleanEnv)) if (key.startsWith("QUARRY_") || key === "SERVER_PORT") delete cleanEnv[key];
   const result = spawnSync(process.execPath, [tsxBin, "-e", code], { cwd, encoding: "utf8", env: { ...cleanEnv, ...env } });
@@ -46,24 +46,28 @@ async function main(): Promise<void> {
     "25570", "My lobby", "50", "8", // port, motd, players, view distance
     "3", "y", // void world, protected
     "y", "", // behind Velocity, make up the secret
-    "Stacik, Alex", // operators
+    "y", // whitelist
+    "ExampleOp, Alex", // operators
   ]);
   const server = JSON.parse(fs.readFileSync(path.join(dir, "server.json"), "utf8"));
-  assert.deepStrictEqual(server, { port: 25570, motd: "My lobby", maxPlayers: 50, viewDistance: 8, generator: "void", protectWorld: true });
+  assert.deepStrictEqual(server, { port: 25570, motd: "My lobby", maxPlayers: 50, viewDistance: 8, generator: "void", protectWorld: true, whitelist: true });
   const velocity = JSON.parse(fs.readFileSync(path.join(dir, "velocity.json"), "utf8"));
   assert.strictEqual(velocity.enabled, true);
   assert.ok(velocity.secret.length >= 12, "a made-up secret is long enough to be a password");
   assert.ok(output.includes(velocity.secret), "and it is shown, so it can be copied into Velocity");
-  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(dir, "ops.json"), "utf8")), ["Stacik", "Alex"]);
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(dir, "ops.json"), "utf8")), ["ExampleOp", "Alex"]);
   let loaded = loadConfig(dir);
   assert.strictEqual(loaded.status, 0, loaded.stderr);
+  assert.strictEqual(loaded.config.whitelist, true);
+  assert.strictEqual(loadConfig(dir, { QUARRY_WHITELIST: 'false' }).config.whitelist, false);
+  assert.notStrictEqual(loadConfig(dir, { QUARRY_WHITELIST: 'yes' }).status, 0);
   assert.deepStrictEqual(
     { port: loaded.config.port, generator: loaded.config.generator, protect: loaded.config.protect, maxPlayers: loaded.config.maxPlayers, viewDistance: loaded.config.viewDistance, motd: loaded.config.motd },
     { port: 25570, generator: "void", protect: true, maxPlayers: 50, viewDistance: 8, motd: "My lobby" },
     "the server really runs with what was typed",
   );
   assert.deepStrictEqual(loaded.config.velocity, { enabled: true, secret: velocity.secret });
-  assert.deepStrictEqual(loaded.config.ops, ["Stacik", "Alex"]);
+  assert.deepStrictEqual(loaded.config.ops, ["ExampleOp", "Alex"]);
   console.log("ok setup: a Velocity lobby is written to server.json, velocity.json and ops.json, and the server reads it back");
 
   // ---------------------------------------------------------------- mistakes are asked again; Enter takes the default

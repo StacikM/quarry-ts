@@ -214,3 +214,11 @@ Synchronous listener and scheduler exceptions are logged without stopping subseq
 ## Checking the examples
 
 Every JavaScript block in this guide is extracted and run by `npx tsx scripts/plugin-docs-check.ts`. It enables each plugin through the real manager in a temporary directory, exercises its behavior, and checks persistence, operator permissions, cooldown expiry, moderation order, and timer cleanup. The existing suites are `npm run check`; run the guide checker after editing examples too.
+
+## Whitelist and NPCs
+
+The core `/whitelist` command is available to operators and the console; whitelist changes kick online non-listed non-operators. `whitelist.json` is persisted separately from plugin data. Operators bypass the whitelist, and bans are checked first.
+
+`api.npcs.spawn(definition)` returns an NPC or `null` if invalid/taken. Definitions contain `id`, `position: {x,y,z}`, optional `yaw`, `pitch`, `name` (section-sign text), `skin: {value, signature?}`, `lookAtPlayers`, `scale`, and `glowing`. Use `api.npcs.get(id)` or `list()` to look up live NPCs. An NPC exposes `id`, `entityId`, `definition`, `teleport(position, yaw?, pitch?)`, `setName(text)`, `setSkin(skinOrUndefined)`, and `remove()`. Remove only NPCs owned by your plugin; lookups can include other plugins' NPCs. The manager removes a plugin's NPCs when it disables.
+
+`api.on("npcInteract", handler)` receives `{player, npc, click: "left"|"right", sneaking}`. Scope handlers to your own NPC ids. The built-in `npcs` plugin adds persistence and per-player/per-NPC cooldowns, and its delayed actions run through the plugin scheduler. Its data shape is `{version: 1, npcs: [{...definition, actions: [{click: "left"|"right"|"any", type, value, delayTicks?}], cooldownMs?, skinName?, leftovers?}]}`. See README **Moving your FancyNpcs NPCs** for migration, supported actions and editing commands. Migration does not contact skin services or elevate players to operators.

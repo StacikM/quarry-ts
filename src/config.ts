@@ -61,6 +61,7 @@ interface Settings {
   seed?: number;
   mapFolder?: string;
   protectWorld?: boolean;
+  whitelist?: boolean;
 }
 
 /** A text seed (like in vanilla) becomes a number the same way every time. A number stays itself. */
@@ -118,6 +119,11 @@ function loadSettings(): Settings {
     if (protect !== true && protect !== false && protect !== "true" && protect !== "false") throw new Error("protectWorld must be true or false");
     settings.protectWorld = protect === true || protect === "true";
   }
+  const whitelist = env("QUARRY_WHITELIST") ?? file.whitelist;
+  if (whitelist !== undefined) {
+    if (whitelist !== true && whitelist !== false && whitelist !== "true" && whitelist !== "false") throw new Error("whitelist must be true or false");
+    settings.whitelist = whitelist === true || whitelist === "true";
+  }
   return settings;
 }
 const settings = loadSettings();
@@ -133,6 +139,8 @@ export const config = {
   /** Text shown under the server name in the multiplayer list. */
   motd: settings.motd ?? "A Minecraft server written in TypeScript",
   maxPlayers: settings.maxPlayers ?? 20,
+  /** true forces protection on at startup; false/absent preserves whitelist.json. */
+  whitelist: settings.whitelist,
 
   /** How many chunks around the player we send (in each direction). */
   viewDistance: settings.viewDistance ?? 6,

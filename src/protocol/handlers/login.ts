@@ -17,6 +17,8 @@ import { offlineUUID } from "../../util/uuid";
 import { normalizeIp } from "../../util/ip";
 import { VALID_USERNAME } from "../../util/username";
 import { banMessage } from "../../game/bans";
+import { whitelistFor, WHITELIST_MESSAGE } from "../../game/whitelist";
+import { isOperatorName } from '../../game/operators';
 import { logger } from "../../util/logger";
 
 /**
@@ -134,6 +136,12 @@ function finishLogin(conn: Connection, username: string, uuid: string, propertie
     logger.info(`Turned away banned ${nameBan ? "name" : "address"}: ${username} from ${conn.address}`);
     conn.disconnect(banMessage(ban));
     return;
+  }
+  try {
+    if (!isOperatorName(username) && !whitelistFor(conn.server).allows(username)) { conn.disconnect(WHITELIST_MESSAGE); return; }
+  } catch (error) {
+    logger.error(`Whitelist could not be loaded: ${String(error)}`);
+    conn.disconnect('The whitelist could not be loaded. Please contact an operator.'); return;
   }
   if (conn.server.getOnlinePlayers().length >= config.maxPlayers) {
     conn.disconnect("The server is full.");
