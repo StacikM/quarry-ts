@@ -24,6 +24,7 @@ async function main(): Promise<void> {
     getSpawnPoint: () => ({ x: 0.5, y: 73, z: 0.5 }),
     getPlayerByName: (name: string) => players.find((p) => p.username.toLowerCase() === name.toLowerCase()),
     broadcastMessage: (text: string) => broadcasts.push(text),
+    npcs: { forOwner: () => ({}), removeOwned: () => {} },
   };
   const manager = new PluginManager(server);
   server.plugins = manager;

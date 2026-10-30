@@ -9,3 +9,7 @@
 /.coordination-watch/
 /velocity.json
 /server.json
+/migrate/
+/whitelist.json
+/whitelist.json.corrupt*
+/whitelist.json

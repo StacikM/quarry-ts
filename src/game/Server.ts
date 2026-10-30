@@ -10,6 +10,7 @@ import { BanList } from "./bans";
 import { ConsoleSender } from "./CommandSender";
 import { ServerStats } from "./stats";
 import { Player } from "./Player";
+import { NpcManager } from "./NpcManager";
 import { config } from "../config";
 import { formatError, logger } from "../util/logger";
 import type { BlockPosition } from "../world/BlockPosition";
@@ -65,6 +66,8 @@ export class MinecraftServer {
   /** Online players, keyed by entity ID. */
   private readonly players = new Map<number, Player>();
   private nextEntityId = 1;
+  /** Fake players that plugins add (see plugins/types.ts, NpcApi). */
+  readonly npcs = new NpcManager(this);
 
   private readonly tcpServer = net.createServer((socket) => new Connection(socket, this));
   private keepAliveTimer: NodeJS.Timeout | null = null;
@@ -75,6 +78,11 @@ export class MinecraftServer {
     for (const command of [...coreCommands, ...adminCommands]) {
       this.plugins.commands.register("core", command);
     }
+  }
+
+  /** A fresh entity number: players, NPCs and everything else share one counter. */
+  allocateEntityId(): number {
+    return this.nextEntityId++;
   }
 
   start(): void {
@@ -169,6 +177,8 @@ export class MinecraftServer {
     const startedAt = performance.now();
     this.plugins.scheduler.tick();
     try {
+      this.npcs.tick(this.tickCount);
+      if (this.tickCount % 20 === 0) for (const player of this.players.values()) player.syncPermissionLevel(); // /op and /deop take effect on the client within a second
       this.streamChunks();
       this.stepAutosave();
     } catch (err) {
@@ -300,7 +310,7 @@ export class MinecraftServer {
       return;
     }
     const viewRadius = Math.max(2, Math.min(config.viewDistance, pending.viewDistance ?? config.viewDistance));
-    const player = new Player(conn, this, this.nextEntityId++, pending.username, pending.uuid, config.defaultGameMode, viewRadius);
+    const player = new Player(conn, this, this.allocateEntityId(), pending.username, pending.uuid, config.defaultGameMode, viewRadius);
     const spawn = this.getSpawnPoint();
     player.x = spawn.x;
     player.y = spawn.y;
@@ -313,6 +323,7 @@ export class MinecraftServer {
     const { x, y, z } = spawn;
     player.send(joinGame(player.entityId, player.gameMode, config.maxPlayers, viewRadius));
     player.send(playerAbilities(player.gameMode));
+    player.syncPermissionLevel();
     player.send(commandTree(this.plugins.commands.all().map((command) => command.name)));
     player.send(timeUpdate(0, config.timeOfDay, false)); // a frozen clock: it is always the same time of day
     player.send(spawnPosition({ x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) }));
@@ -331,6 +342,7 @@ export class MinecraftServer {
       player.send(spawnPlayer(other));
       other.send(spawnPlayer(player));
     }
+    this.npcs.showAllTo(player);
 
     this.broadcastMessage(`${player.username} joined the game`, "yellow");
     this.plugins.events.emit("playerJoin", { player });
@@ -342,6 +354,7 @@ export class MinecraftServer {
     if (!player || !this.players.has(player.entityId)) return;
 
     this.players.delete(player.entityId);
+    this.npcs.forgetPlayer(player);
     this.broadcast(destroyEntities([player.entityId]));
     this.broadcast(playerListRemove([player]));
     this.broadcastMessage(`${player.username} left the game`, "yellow");

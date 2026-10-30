@@ -10,6 +10,7 @@ import { REGISTRY_KEYS } from "./registryKeys";
 import { allTags } from "./tags";
 import { encodeChunk } from "./chunkEncoding";
 import type { Player } from "../game/Player";
+import type { ProfileProperty } from "../network/Connection";
 import type { Chunk } from "../world/Chunk";
 import type { ChunkLight } from "../world/lighting";
 import type { BlockPosition } from "../world/BlockPosition";
@@ -252,6 +253,136 @@ export function spawnPlayer(player: Player): PacketWriter {
 
 export function destroyEntities(entityIds: number[]): PacketWriter {
   return new PacketWriter(PlayOut.RemoveEntities).writeVarIntArray(entityIds);
+}
+
+/** Entity type numbers in the 1.21.11 registry (checked against minecraft-data in protocol-check). */
+export const ARMOR_STAND_ENTITY_TYPE = 5;
+
+/** Any entity, standing still at a position. For players the tab list entry must come first (see playerListAdd). */
+export function spawnEntity(entityId: number, uuid: string, entityType: number, x: number, y: number, z: number, yaw: number, pitch: number): PacketWriter {
+  return new PacketWriter(PlayOut.SpawnEntity)
+    .writeVarInt(entityId)
+    .writeUUID(uuid)
+    .writeVarInt(entityType)
+    .writeDouble(x)
+    .writeDouble(y)
+    .writeDouble(z)
+    .writeUnsignedByte(0) // velocity: one zero byte means "not moving"
+    .writeAngle(pitch)
+    .writeAngle(yaw)
+    .writeAngle(yaw) // head rotation
+    .writeVarInt(0); // extra data
+}
+
+/** One piece of entity data ("metadata"). `index` is the field number of that kind of entity; a wrong one makes the client throw. */
+export type MetadataEntry =
+  | { index: number; type: "byte"; value: number }
+  | { index: number; type: "boolean"; value: boolean }
+  | { index: number; type: "optionalComponent"; value: ChatComponent | null };
+
+const METADATA_TYPE = { byte: 0, optionalComponent: 6, boolean: 8 } as const;
+
+/** Entity data fields: entity 0 = flags (bit 5, 0x20, is invisible), 2 = custom name, 3 = whether the name shows. Player 17 = skin layers; armor stand 15 = flags. */
+export function entityMetadata(entityId: number, entries: MetadataEntry[]): PacketWriter {
+  const packet = new PacketWriter(PlayOut.SetEntityData).writeVarInt(entityId);
+  for (const entry of entries) {
+    packet.writeUnsignedByte(entry.index).writeVarInt(METADATA_TYPE[entry.type]);
+    if (entry.type === "byte") packet.writeByte(entry.value);
+    else if (entry.type === "boolean") packet.writeBoolean(entry.value);
+    else {
+      packet.writeBoolean(entry.value !== null);
+      if (entry.value !== null) packet.writeTextComponent(entry.value);
+    }
+  }
+  return packet.writeUnsignedByte(0xff); // end of the list
+}
+
+/** Tells a player their own operator level (0-4): the client uses it to decide what it lets them try, like the F3+F4 game mode switcher. */
+export function permissionLevel(playerEntityId: number, level: number): PacketWriter {
+  return new PacketWriter(PlayOut.EntityStatus).writeInt(playerEntityId).writeByte(24 + level);
+}
+
+/** Moves and turns any entity (the "Entity Position Sync" packet). */
+export function entityPositionSync(entityId: number, x: number, y: number, z: number, yaw: number, pitch: number): PacketWriter {
+  return new PacketWriter(PlayOut.EntityPositionSync)
+    .writeVarInt(entityId)
+    .writeDouble(x)
+    .writeDouble(y)
+    .writeDouble(z)
+    .writeDouble(0)
+    .writeDouble(0)
+    .writeDouble(0)
+    .writeFloat(yaw)
+    .writeFloat(pitch)
+    .writeBoolean(true);
+}
+
+export function headRotation(entityId: number, yaw: number): PacketWriter {
+  return new PacketWriter(PlayOut.HeadRotation).writeVarInt(entityId).writeAngle(yaw);
+}
+
+/** A tab list entry for a fake player (an NPC): carries its skin, and is not listed. */
+export function npcListAdd(uuid: string, name: string, properties: ProfileProperty[]): PacketWriter {
+  const packet = new PacketWriter(PlayOut.PlayerInfoUpdate)
+    .writeUnsignedByte(INFO_ADD_PLAYER | INFO_LISTED)
+    .writeVarInt(1)
+    .writeUUID(uuid)
+    .writeString(name)
+    .writeVarInt(properties.length);
+  for (const property of properties) {
+    packet.writeString(property.name).writeString(property.value).writeBoolean(property.signature !== undefined);
+    if (property.signature !== undefined) packet.writeString(property.signature);
+  }
+  return packet.writeBoolean(false); // not shown in the tab list
+}
+
+/** A team whose members have no name tag above their head and no collision. Members are player names. */
+export function teamWithHiddenNames(teamName: string, members: string[]): PacketWriter {
+  const packet = new PacketWriter(PlayOut.SetPlayerTeam)
+    .writeString(teamName)
+    .writeByte(0) // create
+    .writeTextComponent({ text: teamName })
+    .writeUnsignedByte(0) // flags
+    .writeVarInt(1) // name tags: never
+    .writeVarInt(1) // collision: never
+    .writeVarInt(21) // team colour: reset (the number of "reset" in the game's list of formatting codes)
+    .writeTextComponent({ text: "" }) // prefix
+    .writeTextComponent({ text: "" }) // suffix
+    .writeVarInt(members.length);
+  for (const member of members) packet.writeString(member);
+  return packet;
+}
+
+/** Takes a fake player out of the tab list (and with it the skin the client remembered for it). */
+export function npcListRemove(uuid: string): PacketWriter {
+  return new PacketWriter(PlayOut.PlayerInfoRemove).writeVarInt(1).writeUUID(uuid);
+}
+
+export function removeTeam(teamName: string): PacketWriter {
+  return new PacketWriter(PlayOut.SetPlayerTeam).writeString(teamName).writeByte(1);
+}
+
+// ----------------------------------------------------------- Inventory ---
+
+/** Selects a hotbar slot (0-8) on the client. */
+export function setHeldSlot(slot: number): PacketWriter {
+  return new PacketWriter(PlayOut.SetHeldSlot).writeVarInt(slot);
+}
+
+/** An item stack: nothing (count 0) or an item id with a count and no extra data. */
+function writeItem(packet: PacketWriter, item: { itemId: number; count: number } | null): void {
+  if (item === null || item.count <= 0 || item.itemId < 0) {
+    packet.writeVarInt(0);
+    return;
+  }
+  packet.writeVarInt(item.count).writeVarInt(item.itemId).writeVarInt(0).writeVarInt(0); // no component changes
+}
+
+/** Sets one slot of the player's own inventory window (0 = crafting result... 36-44 = hotbar, 9-35 = main). */
+export function setInventorySlot(slot: number, item: { itemId: number; count: number } | null, stateId = 0): PacketWriter {
+  const packet = new PacketWriter(PlayOut.ContainerSetSlot).writeUnsignedByte(0).writeVarInt(stateId).writeShort(slot);
+  writeItem(packet, item);
+  return packet;
 }
 
 /** Moves another player to an absolute position (the whole point of "Entity Position Sync"). */

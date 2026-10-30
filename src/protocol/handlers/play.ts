@@ -11,6 +11,8 @@ import { GameMode } from "../../game/GameMode";
 import { FACE_OFFSETS, type BlockPosition } from "../../world/BlockPosition";
 import { Block } from "../../world/blocks";
 import { describeState, itemName, stateForItem } from "../../world/blockStates";
+import { itemForState } from "../../game/pick";
+import { HOTBAR_START } from "../../game/Inventory";
 
 /** Falling below this teleports you back to spawn. */
 const VOID_Y = -20;
@@ -102,10 +104,42 @@ export function handlePlay(conn: Connection, packetId: number, reader: PacketRea
 
     case PlayIn.SetCreativeSlot: {
       const slot = reader.readShort();
-      // Slots 36-44 are the hotbar. Only creative players may create items.
-      if (player.gameMode === GameMode.Creative && slot >= 36 && slot <= 44) {
-        player.hotbar[slot - 36] = reader.readSlot().itemId;
+      // Only creative players may create items. The slot numbers are those of the inventory window (36-44 is the hotbar); -1 is "dropped".
+      if (player.gameMode === GameMode.Creative && slot >= 0) {
+        const { itemId, count } = reader.readSlot();
+        // An item number we do not know would be sent back to the client as it is, so it is treated as nothing.
+        player.setInventorySlot(slot, itemName(itemId) === undefined ? null : { itemId, count: Math.min(count, 99) }, false);
       }
+      break;
+    }
+
+    case PlayIn.ChangeGameMode: {
+      // The F3+F4 switcher (and F3+N) ask for a game mode directly instead of typing /gamemode, so the same rule applies.
+      const mode = reader.readVarInt();
+      if (!player.isOp) {
+        player.sendMessage("You don't have permission to use that command.", "red");
+      } else if (mode >= GameMode.Survival && mode <= GameMode.Spectator) {
+        player.setGameMode(mode);
+      }
+      break;
+    }
+
+    case PlayIn.PickItemFromBlock: {
+      const pos = reader.readPosition();
+      reader.readBoolean(); // whether to keep the block's extra data: we have none
+      pickBlock(player, pos);
+      break;
+    }
+
+    case PlayIn.Interact: {
+      // Hitting (1) or right-clicking (0, then also 2 which says where on the entity) an entity.
+      const target = reader.readVarInt();
+      const mouse = reader.readVarInt();
+      if (mouse === 2) for (let i = 0; i < 3; i++) reader.readFloat();
+      const hand = mouse === 1 ? 0 : reader.readVarInt();
+      const sneaking = reader.readBoolean();
+      if (player.gameMode === GameMode.Spectator || hand !== 0 || mouse === 2) break; // one event per click
+      player.server.npcs.handleInteract(player, target, mouse === 1 ? "left" : "right", sneaking);
       break;
     }
 
@@ -239,6 +273,22 @@ function handleBlockPlacement(player: Player, reader: PacketReader): void {
     placeBlock(player, hand, clicked, face, cursor);
   } finally {
     player.send(blockChangedAck(sequence));
+  }
+}
+
+/** Middle click: select the block's item if it is in the hotbar, and in creative mode get it if it is not. */
+function pickBlock(player: Player, pos: BlockPosition): void {
+  if (!isInWorld(pos) || player.gameMode === GameMode.Spectator) return;
+  if ((player.x - pos.x - 0.5) ** 2 + (player.y + 1.6 - pos.y - 0.5) ** 2 + (player.z - pos.z - 0.5) ** 2 > 8 * 8) return; // out of reach
+  const item = itemForState(player.server.world.getState(pos));
+  if (item === undefined) return;
+  const existing = player.inventory.findInHotbar(item);
+  if (existing !== -1) {
+    player.selectHotbarSlot(existing);
+  } else if (player.gameMode === GameMode.Creative) {
+    const slot = player.inventory.slotForPicked(player.heldSlot);
+    player.setInventorySlot(HOTBAR_START + slot, { itemId: item, count: 1 });
+    player.selectHotbarSlot(slot);
   }
 }
 

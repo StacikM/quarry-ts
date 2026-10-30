@@ -4,6 +4,7 @@ import type { PluginCommand } from "../plugins/types";
 import { config } from "../config";
 import { addOperator, removeOperator } from "./operators";
 import { colour, sendUsage, senderCommand } from "./commandSupport";
+import { itemId } from "../world/blockStates";
 
 /**
  * The commands that come with the server. They are registered in the same
@@ -66,6 +67,31 @@ export const coreCommands: PluginCommand[] = [
       player.sendMessage(`Game mode set to ${GameMode[mode]}`, "green");
     },
   },
+
+  senderCommand({
+    name: "give",
+    usage: "/give <player> <item> [count]   (for example /give Steve diamond_sword, or /give @s stone 64)",
+    description: "Give items to a player",
+    opOnly: true,
+    run(sender, args) {
+      const [who, rawItem, rawCount] = args;
+      if (!who || !rawItem) return sendUsage(sender, "/give <player> <item> [count]");
+      const target = who === "@s" || who === "@p" ? sender.server.getPlayerByName(sender.name) : sender.server.getPlayerByName(who);
+      if (!target) return sender.sendMessage(`${who} is not online`, "red");
+
+      const name = rawItem.toLowerCase().replace(/^minecraft:/, "");
+      const id = itemId(name);
+      if (id === undefined) return sender.sendMessage(`Unknown item: ${rawItem}`, "red");
+      const count = rawCount === undefined ? 1 : Number(rawCount);
+      if (!Number.isInteger(count) || count < 1 || count > 2304) return sender.sendMessage("The count must be a whole number from 1 to 2304", "red");
+
+      const leftover = target.giveItem(id, count);
+      const given = count - leftover;
+      if (given === 0) return sender.sendMessage(`${target.username}'s inventory is full`, "red");
+      sender.sendMessage(`Gave ${given} ${name} to ${target.username}${leftover > 0 ? ` (${leftover} did not fit)` : ""}`, "green");
+      if (target.username !== sender.name) target.sendMessage(`You were given ${given} ${name}`, "gray");
+    },
+  }),
 
   {
     name: "spawn",

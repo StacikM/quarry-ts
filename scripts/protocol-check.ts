@@ -80,6 +80,7 @@ checkIds("play", "toServer", ids.PlayIn, {
   ChunkBatchReceived: "chunk_batch_received", ClientCommand: "client_command", ClientInformation: "settings", KeepAlive: "keep_alive",
   PlayerPosition: "position", PlayerPositionAndLook: "position_look", PlayerLook: "look", PlayerStatusOnly: "flying", PlayerAbilities: "abilities",
   PlayerAction: "block_dig", HeldItemChange: "held_item_slot", SetCreativeSlot: "set_creative_slot", Swing: "arm_animation", UseItemOn: "block_place",
+  Interact: "use_entity", PickItemFromBlock: "pick_item_from_block", ChangeGameMode: "change_gamemode",
 });
 checkIds("play", "toClient", ids.PlayOut, {
   SpawnEntity: "spawn_entity", Animation: "animation", BlockChangedAck: "acknowledge_player_digging", BlockUpdate: "block_change",
@@ -89,8 +90,11 @@ checkIds("play", "toClient", ids.PlayOut, {
   PlayerInfoRemove: "player_remove", PlayerInfoUpdate: "player_info", PlayerPosition: "position", RemoveEntities: "entity_destroy",
   HeadRotation: "entity_head_rotation", SetCenterChunk: "update_view_position", SetDefaultSpawnPosition: "spawn_position", SetTime: "update_time",
   SystemChat: "system_chat", EntityPositionSync: "sync_entity_position", UnloadChunk: "unload_chunk",
+  ContainerContent: "window_items", ContainerSetSlot: "set_slot", SetEntityData: "entity_metadata", SetHeldSlot: "held_item_slot",
+  SetPlayerInventory: "set_player_inventory", SetPlayerTeam: "teams", EntityStatus: "entity_status",
 });
 assert.equal(data.entitiesByName.player.id, out.PLAYER_ENTITY_TYPE, "the player entity type number");
+assert.equal(data.entitiesByName.armor_stand.id, out.ARMOR_STAND_ENTITY_TYPE, "the armor stand entity type number");
 
 const player: any = {
   entityId: 257, uuid: "12345678-1234-4234-8234-123456789abc", username: "Audit", gameMode: 1,
@@ -224,6 +228,68 @@ assert.equal(added.data[0].gamemode, 1); assert.equal(added.data[0].latency, 0);
 const gameModeOnly = decoded("play", out.playerListUpdateGameMode(player), "player_info");
 assert.equal(gameModeOnly.action.update_game_mode, true); assert.equal(gameModeOnly.action.add_player, false); assert.equal(gameModeOnly.data[0].gamemode, 1);
 assert.deepEqual(decoded("play", out.playerListRemove([player]), "player_remove").players, [player.uuid]);
+
+// ------------------------------------------------------------------ NPCs: fake players, their name stand, their team
+const npcUuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+{
+  const npcSpawn = decoded("play", out.spawnEntity(300, npcUuid, out.PLAYER_ENTITY_TYPE, 1.5, 64, -2.5, 90, 45), "spawn_entity");
+  assert.equal(npcSpawn.entityId, 300); assert.equal(npcSpawn.objectUUID, npcUuid); assert.equal(npcSpawn.type, 155);
+  assert.deepEqual([npcSpawn.x, npcSpawn.y, npcSpawn.z], [1.5, 64, -2.5]); assert.equal(npcSpawn.yaw, 64); assert.equal(npcSpawn.pitch, 32);
+
+  const info = decoded("play", out.npcListAdd(npcUuid, "qn_1", [{ name: "textures", value: "dGV4", signature: "c2ln" }]), "player_info");
+  assert.equal(info.action.add_player, true); assert.equal(info.action.update_listed, true); assert.equal(info.action.update_game_mode, false);
+  assert.equal(info.data[0].uuid, npcUuid); assert.equal(info.data[0].player.name, "qn_1");
+  assert.deepEqual(info.data[0].player.properties, [{ name: "textures", value: "dGV4", signature: "c2ln" }]);
+  assert.ok(!info.data[0].listed, "an NPC is not in the tab list"); // the decoder shows the one byte as a number
+  assert.deepEqual(decoded("play", out.npcListRemove(npcUuid), "player_remove").players, [npcUuid]);
+
+  const team = decoded("play", out.teamWithHiddenNames("qn1", ["qn_1"]), "teams");
+  assert.equal(team.team, "qn1"); assert.equal(team.mode, "add"); assert.equal(team.nameTagVisibility, "never"); assert.equal(team.collisionRule, "never");
+  assert.equal(team.formatting, 21, "the \"reset\" formatting: a number outside the game's list crashes the client"); assert.deepEqual(team.players, ["qn_1"]);
+  assert.equal(decoded("play", out.removeTeam("qn1"), "teams").mode, "remove");
+
+  const meta = decoded("play", out.entityMetadata(301, [
+    { index: 0, type: "byte", value: 0x20 },
+    { index: 2, type: "optionalComponent", value: { text: "§aShop" } },
+    { index: 3, type: "boolean", value: true },
+    { index: 15, type: "byte", value: 0x11 },
+    { index: 2, type: "optionalComponent", value: null },
+  ]), "entity_metadata");
+  assert.equal(meta.entityId, 301);
+  assert.deepEqual(meta.metadata.map((entry: any) => [entry.key, entry.type]), [[0, "byte"], [2, "optional_component"], [3, "boolean"], [15, "byte"], [2, "optional_component"]]);
+  assert.deepEqual([meta.metadata[0].value, meta.metadata[2].value, meta.metadata[3].value], [0x20, true, 0x11]);
+  assert.deepEqual(simplify(meta.metadata[1].value), { text: "§aShop" }); assert.equal(meta.metadata[4].value, undefined);
+
+  const sync = decoded("play", out.entityPositionSync(300, 1.5, 64, -2.5, 180, -10), "sync_entity_position");
+  assert.deepEqual([sync.entityId, sync.x, sync.y, sync.z, sync.yaw, sync.pitch], [300, 1.5, 64, -2.5, 180, -10]);
+  assert.deepEqual(decoded("play", out.headRotation(300, 90), "entity_head_rotation"), { entityId: 300, headYaw: 64 });
+}
+
+// ------------------------------------------------------------------ operator level and the game mode switcher
+{
+  assert.deepEqual(decoded("play", out.permissionLevel(257, 0), "entity_status"), { entityId: 257, entityStatus: 24 });
+  assert.deepEqual(decoded("play", out.permissionLevel(257, 2), "entity_status"), { entityId: 257, entityStatus: 26 });
+  const switcher = incoming("play", "change_gamemode", { mode: "creative" });
+  assert.equal(switcher.id, ids.PlayIn.ChangeGameMode); assert.equal(switcher.reader.readVarInt(), 1);
+}
+
+// ------------------------------------------------------------------ inventory
+{
+  const slotPacket = decoded("play", out.setInventorySlot(36, { itemId: itemId("diamond_sword")!, count: 1 }), "set_slot");
+  assert.equal(slotPacket.windowId, 0); assert.equal(slotPacket.slot, 36);
+  assert.equal(slotPacket.item.itemCount, 1); assert.equal(slotPacket.item.itemId, itemId("diamond_sword"));
+  assert.equal(decoded("play", out.setInventorySlot(40, null), "set_slot").item.itemCount, 0, "an empty slot");
+  assert.equal(decoded("play", out.setHeldSlot(4), "held_item_slot").slot, 4);
+
+  const pick = incoming("play", "pick_item_from_block", { position: { x: -3, y: 70, z: 12 }, includeData: true });
+  assert.equal(pick.id, ids.PlayIn.PickItemFromBlock); assert.deepEqual(pick.reader.readPosition(), { x: -3, y: 70, z: 12 }); assert.equal(pick.reader.readBoolean(), true);
+  const attack = incoming("play", "use_entity", { target: 300, mouse: 1, sneaking: true });
+  assert.equal(attack.id, ids.PlayIn.Interact); assert.deepEqual([attack.reader.readVarInt(), attack.reader.readVarInt(), attack.reader.readBoolean()], [300, 1, true]);
+  const click = incoming("play", "use_entity", { target: 300, mouse: 0, hand: 0, sneaking: false });
+  assert.deepEqual([click.reader.readVarInt(), click.reader.readVarInt(), click.reader.readVarInt(), click.reader.readBoolean()], [300, 0, 0, false]);
+  const clickAt = incoming("play", "use_entity", { target: 300, mouse: 2, x: 0.25, y: 0.5, z: 0.75, hand: 1, sneaking: false });
+  assert.deepEqual([clickAt.reader.readVarInt(), clickAt.reader.readVarInt(), clickAt.reader.readFloat(), clickAt.reader.readFloat(), clickAt.reader.readFloat(), clickAt.reader.readVarInt()], [300, 2, 0.25, 0.5, 0.75, 1]);
+}
 assert.deepEqual(simplify(decoded("play", out.playDisconnect(component), "kick_disconnect").reason), component);
 
 const tree = decoded("play", out.commandTree(["help", "tp"]), "declare_commands");

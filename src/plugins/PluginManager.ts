@@ -96,6 +96,7 @@ export class PluginManager {
     this.events.removeAll(owner);
     this.commands.removeAll(owner);
     this.scheduler.removeAll(owner);
+    this.server.npcs.removeOwned(owner);
   }
 
   /** Loads every .js / .cjs file in plugins/. A file may export a Plugin or a list of them. */
@@ -128,6 +129,7 @@ export class PluginManager {
     return {
       server: this.server,
       logger: pluginLogger,
+      npcs: this.server.npcs.forOwner(owner),
 
       on: (event, handler) => this.events.on(owner, event, handler),
 

@@ -58,6 +58,7 @@ export const ConfigOut = {
 
 export const PlayIn = {
   TeleportConfirm: 0x00,
+  ChangeGameMode: 0x04, // F3+F4 and F3+N
   ChatCommand: 0x06,
   ChatCommandSigned: 0x07,
   ChatMessage: 0x08,
@@ -69,6 +70,8 @@ export const PlayIn = {
   PlayerPositionAndLook: 0x1e,
   PlayerLook: 0x1f,
   PlayerStatusOnly: 0x20,
+  Interact: 0x19, // attacking or right-clicking an entity
+  PickItemFromBlock: 0x23, // middle click
   PlayerAbilities: 0x27,
   PlayerAction: 0x28, // digging
   HeldItemChange: 0x34,
@@ -87,6 +90,9 @@ export const PlayOut = {
   PluginMessage: 0x18,
   ClearTitles: 0x0e,
   Commands: 0x10,
+  ContainerContent: 0x12,
+  EntityStatus: 0x22, // events of an entity; 24-28 tell a player their operator level
+  ContainerSetSlot: 0x14,
   Disconnect: 0x20,
   GameEvent: 0x26,
   KeepAlive: 0x2b,
@@ -98,7 +104,11 @@ export const PlayOut = {
   PlayerPosition: 0x46,
   RemoveEntities: 0x4b,
   HeadRotation: 0x51,
+  SetEntityData: 0x61,
+  SetHeldSlot: 0x67,
   SetCenterChunk: 0x5c,
+  SetPlayerInventory: 0x6a,
+  SetPlayerTeam: 0x6b,
   SetDefaultSpawnPosition: 0x5f,
   SetTitleSubtitle: 0x6e,
   SetTime: 0x6f,

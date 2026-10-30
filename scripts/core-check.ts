@@ -91,7 +91,7 @@ async function main(): Promise<void> {
 
   // ------------------------------------------------------ plugin manager
   {
-    const pm = new PluginManager({} as never);
+    const pm = new PluginManager({ npcs: { forOwner: () => ({}), removeOwned: () => {} } } as never); // a server that only has what plugins touch here
     for (const c of coreCommands) pm.commands.register("core", c);
 
     quiet(() => {

@@ -3,6 +3,7 @@ import type { PacketWriter } from "../network/PacketWriter";
 import type { MinecraftServer } from "./Server";
 import { GameMode } from "./GameMode";
 import { config } from "../config";
+import { HOTBAR_START, Inventory, type ItemStack } from "./Inventory";
 import {
   changeGameMode,
   clearTitles,
@@ -15,6 +16,9 @@ import {
   playerPosition,
   pluginMessage,
   setCenterChunk,
+  permissionLevel,
+  setHeldSlot,
+  setInventorySlot,
   systemChat,
   titleSubtitle,
   titleText,
@@ -40,6 +44,8 @@ export class Player {
   /** Which slot of the hotbar is selected (0-8), and what is in the hotbar slots, as item ids (-1 = nothing). */
   heldSlot = 0;
   readonly hotbar: number[] = new Array(9).fill(-1);
+  /** Everything the player carries (see Inventory). The hotbar array above mirrors its hotbar slots. */
+  readonly inventory = new Inventory();
 
   /** Numbers the position updates we force on the client; it answers each with "Teleport Confirm". */
   private teleportCounter = 0;
@@ -81,6 +87,20 @@ export class Player {
     return this.connection.clientIp;
   }
 
+  /** The operator level the client was last told, so it is only told again when it changes. */
+  private sentPermissionLevel: number | null = null;
+
+  /**
+   * Tells the client whether this player is an operator. Without it the client refuses things like the F3+F4
+   * game mode switcher ("no permission") even for operators. Call when they join and whenever it may have changed.
+   */
+  syncPermissionLevel(): void {
+    const level = this.isOp ? 2 : 0;
+    if (level === this.sentPermissionLevel) return;
+    this.sentPermissionLevel = level;
+    this.send(permissionLevel(this.entityId, level));
+  }
+
   get isOp(): boolean {
     return config.ops.some((name) => name.toLowerCase() === this.username.toLowerCase());
   }
@@ -96,6 +116,31 @@ export class Player {
 
   sendMessage(text: string, color?: string): void {
     this.send(systemChat({ text, color }));
+  }
+
+  /**
+   * Puts a stack (or nothing) into an inventory slot (numbered like the client's inventory window: 36-44 is the hotbar).
+   * With `tellClient` false the client is not told, for when it just told us.
+   */
+  setInventorySlot(slot: number, stack: ItemStack | null, tellClient = true): boolean {
+    if (!this.inventory.set(slot, stack)) return false;
+    if (slot >= HOTBAR_START && slot < HOTBAR_START + 9) this.hotbar[slot - HOTBAR_START] = this.inventory.get(slot)?.itemId ?? -1;
+    if (tellClient) this.send(setInventorySlot(slot, this.inventory.get(slot)));
+    return true;
+  }
+
+  /** Gives items (hotbar first). Returns how many did not fit. */
+  giveItem(itemId: number, count: number): number {
+    const { leftover, changed } = this.inventory.add(itemId, count);
+    for (const slot of changed) this.setInventorySlot(slot, this.inventory.get(slot));
+    return leftover;
+  }
+
+  /** Selects a hotbar slot (0-8) for the player, on the client too. */
+  selectHotbarSlot(slot: number): void {
+    if (!Number.isInteger(slot) || slot < 0 || slot > 8) return;
+    this.heldSlot = slot;
+    this.send(setHeldSlot(slot));
   }
 
   /** Text above the hotbar. */
