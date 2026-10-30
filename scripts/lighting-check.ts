@@ -1,5 +1,7 @@
 /**
- * Checks that our light data follows the Minecraft client's own lighting rules.
+ * Checks propagation consistency for Quarry's state-indexed lighting model.
+ * Water attenuation is currently the requested compatibility value 3; modern
+ * source data uses 1. This is not an independent proof of full vanilla fidelity.
  * Run with:  npx tsx scripts/lighting-check.ts
  *
  * The client re-checks the light of every chunk it receives. Where our numbers
@@ -86,7 +88,7 @@ function light(chunk: Chunk) {
   // Lava glows and lights its surroundings.
   const chunk = flatChunk();
   for (let x = 6; x < 11; x++) for (let z = 6; z < 11; z++) for (let y = 20; y < 24; y++) chunk.setBlock(x, y, z, Block.Air); // sealed cave
-  chunk.setBlock(8, 20, 8, 11); // lava
+  chunk.setBlock(8, 20, 8, Block.Lava);
   const { block, sky } = light(chunk);
   assert.strictEqual(block[index(8, 20, 8)], 15, "lava itself is 15");
   assert.strictEqual(block[index(8, 21, 8)], 14);
@@ -115,7 +117,7 @@ function light(chunk: Chunk) {
 
     for (let y = 0; y < 256; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
       const i = index(x, y, z);
-      const id = blocks[i] >> 4;
+      const id = blocks[i];
       const opacity = lightOpacity(id);
       const onBorder = x === 0 || x === 15 || z === 0 || z === 15;
       if (onBorder) continue; // border blocks also depend on the next chunk; checked separately below
@@ -135,7 +137,7 @@ function light(chunk: Chunk) {
     }
     assert.ok(problems.length === 0, `light disagrees with the client's rules:\n  ${problems.slice(0, 12).join("\n  ")}`);
   }
-  console.log(`ok ${cells.toLocaleString()} blocks in ${areas.length} real chunks follow the client's lighting rules exactly`);
+  console.log(`ok ${cells.toLocaleString()} blocks in ${areas.length} real chunks satisfy the configured lighting model`);
 
   // Across chunk borders we only know the neighbour's column heights, not its light, so a few blocks next to a
   // border (mostly tree canopies that cross it) are off by a level or two. That is a known limit; it must stay tiny.
@@ -151,7 +153,7 @@ function light(chunk: Chunk) {
       const b = skyEast[index(0, y, z)];
       if (a === 0 && b === 0) continue;
       litPairs++;
-      const cost = Math.max(1, lightOpacity(chunk.getRawBlocks()[index(15, y, z)] >> 4), lightOpacity(east.getRawBlocks()[index(0, y, z)] >> 4));
+      const cost = Math.max(1, lightOpacity(chunk.getRawBlocks()[index(15, y, z)]), lightOpacity(east.getRawBlocks()[index(0, y, z)]));
       if (Math.abs(a - b) > cost && Math.min(a, b) > 0) jumps++;
     }
   }

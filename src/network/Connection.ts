@@ -3,17 +3,34 @@ import { decodeVarInt } from "./VarInt";
 import { ConnectionState } from "./ConnectionState";
 import { PacketReader } from "./PacketReader";
 import type { PacketWriter } from "./PacketWriter";
+import { frame, unframe } from "./framing";
 import { handleHandshake } from "../protocol/handlers/handshake";
 import { handleStatus } from "../protocol/handlers/status";
 import { handleLogin } from "../protocol/handlers/login";
+import { handleConfiguration } from "../protocol/handlers/configuration";
 import { handlePlay } from "../protocol/handlers/play";
-import { loginDisconnect, playDisconnect } from "../protocol/clientbound";
+import { configDisconnect, loginDisconnect, playDisconnect } from "../protocol/clientbound";
+import { normalizeIp } from "../util/ip";
 import { logger } from "../util/logger";
 import type { MinecraftServer } from "../game/Server";
 import type { Player } from "../game/Player";
 
 /** Refuse absurdly big packets so a bad client can't make us eat all memory. */
 const MAX_PACKET_SIZE = 2 * 1024 * 1024;
+
+/** A client that has not finished logging in after this long is dropped. */
+const LOGIN_TIMEOUT_MS = 30_000;
+
+/** What we know about a player between "Login Start" and the moment they enter the world. */
+export interface PendingLogin {
+  username: string;
+  uuid: string;
+  /** Where they really connect from (a proxy forwards this). */
+  ip: string;
+  /** Set once the client has answered our Known Packs question. */
+  knownPacksAnswered: boolean;
+  viewDistance: number | null;
+}
 
 /**
  * One TCP connection from one client.
@@ -27,8 +44,17 @@ export class Connection {
   protocolVersion = 0;
   /** Set once the client has logged in. */
   player: Player | null = null;
+  /** Filled in while logging in and configuring, then handed to the server. */
+  pending: PendingLogin | null = null;
+  /** Packets of at least this many bytes are compressed; -1 means no compression at all. */
+  compressionThreshold = -1;
+  /** The id of the Velocity forwarding request we are waiting on, or null. */
+  velocityMessageId: number | null = null;
+  /** The address the player really comes from. Behind a proxy that is not the socket's address. */
+  private forwardedIp: string | null = null;
 
   private incoming = Buffer.alloc(0);
+  private readonly loginTimer: NodeJS.Timeout;
 
   constructor(
     readonly socket: Socket,
@@ -36,7 +62,14 @@ export class Connection {
   ) {
     socket.setNoDelay(true); // send small packets right away instead of batching
     socket.on("data", (data) => this.onData(data));
-    socket.on("close", () => server.onConnectionClosed(this));
+    socket.on("close", () => {
+      clearTimeout(this.loginTimer);
+      server.onConnectionClosed(this);
+    });
+    this.loginTimer = setTimeout(() => {
+      if (this.state !== ConnectionState.Play) this.socket.destroy();
+    }, LOGIN_TIMEOUT_MS);
+    this.loginTimer.unref();
     socket.on("error", () => {
       // Clients disconnecting abruptly cause errors like ECONNRESET.
       // "close" fires right after, which is where cleanup happens.
@@ -45,6 +78,15 @@ export class Connection {
 
   get address(): string {
     return `${this.socket.remoteAddress}:${this.socket.remotePort}`;
+  }
+
+  /** The player's IP address: what the proxy told us if there is one, else the socket's. */
+  get clientIp(): string {
+    return this.forwardedIp ?? normalizeIp(this.socket.remoteAddress ?? "");
+  }
+
+  set clientIp(ip: string) {
+    this.forwardedIp = ip;
   }
 
   private onData(data: Buffer): void {
@@ -63,9 +105,9 @@ export class Connection {
         const packetEnd = length.size + length.value;
         if (this.incoming.length < packetEnd) return; // wait for the rest
 
-        const packet = this.incoming.subarray(length.size, packetEnd);
+        const payload = this.incoming.subarray(length.size, packetEnd);
         this.incoming = this.incoming.subarray(packetEnd);
-        this.handlePacket(packet);
+        this.handlePacket(unframe(payload, this.compressionThreshold, MAX_PACKET_SIZE));
       }
     } catch (err) {
       logger.warn(`Error from ${this.address}: ${(err as Error).message}`);
@@ -85,6 +127,8 @@ export class Connection {
         return handleStatus(this, packetId, reader);
       case ConnectionState.Login:
         return handleLogin(this, packetId, reader);
+      case ConnectionState.Configuration:
+        return handleConfiguration(this, packetId, reader);
       case ConnectionState.Play:
         return handlePlay(this, packetId, reader);
     }
@@ -92,7 +136,7 @@ export class Connection {
 
   send(packet: PacketWriter): void {
     if (!this.socket.destroyed) {
-      this.socket.write(packet.toBuffer());
+      this.socket.write(frame(packet.body(), this.compressionThreshold));
     }
   }
 
@@ -101,6 +145,8 @@ export class Connection {
     const message = { text: reason, color: "red" };
     if (this.state === ConnectionState.Login) {
       this.send(loginDisconnect(message));
+    } else if (this.state === ConnectionState.Configuration) {
+      this.send(configDisconnect(message));
     } else if (this.state === ConnectionState.Play) {
       this.send(playDisconnect(message));
     }

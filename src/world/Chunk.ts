@@ -1,21 +1,26 @@
 /**
  * A chunk is a 16 x 256 x 16 column of blocks.
  *
- * For sending, it's split into 16 "sections" stacked on top of each other,
- * each 16 x 16 x 16. Sections that are all air are skipped, which is why
- * flat worlds are cheap to send.
+ * Every block is stored as its "block state" number: one number that says both
+ * which block it is and how it is set (an oak door facing north, open, lower half...).
+ * It is the same number the Minecraft protocol uses, so nothing needs converting
+ * on the way to the player. See blockStates.ts to turn names into numbers.
+ *
+ * For sending (protocol/chunkEncoding.ts) the column is split into 16 sections
+ * of 16 x 16 x 16 blocks.
  */
 
 import { OPACITY_TABLE } from "./lightData";
-import { computeLight, packLight, type ChunkLight } from "./lighting";
+import { biomeId } from "./biomeIds";
+import type { ChunkLight } from "./lighting";
 
 const SECTION_COUNT = 16;
 const BLOCKS_PER_SECTION = 16 * 16 * 16; // 4096
-const BIOME_PLAINS = 1;
+const BIOME_PLAINS = biomeId("plains");
 
 export class Chunk {
   /**
-   * Every block in the chunk, stored as (blockId << 4) | metadata.
+   * Every block in the chunk, as a block state number (0 is air).
    *
    * The index is (y << 8) | (z << 4) | x, which means y is the "slowest"
    * changing coordinate. That's the same order the protocol uses, and it
@@ -36,17 +41,14 @@ export class Chunk {
     return (y << 8) | (z << 4) | x;
   }
 
-  getBlockId(x: number, y: number, z: number): number {
-    return this.blocks[Chunk.index(x, y, z)] >> 4;
-  }
-
-  getBlockMetadata(x: number, y: number, z: number): number {
-    return this.blocks[Chunk.index(x, y, z)] & 0xf;
+  /** The block state at this spot. */
+  getState(x: number, y: number, z: number): number {
+    return this.blocks[Chunk.index(x, y, z)];
   }
 
   /** Used by terrain generators. Not saved: the generator can recreate it. */
-  setBlock(x: number, y: number, z: number, blockId: number, metadata = 0): void {
-    this.blocks[Chunk.index(x, y, z)] = (blockId << 4) | (metadata & 0xf);
+  setBlock(x: number, y: number, z: number, state: number): void {
+    this.blocks[Chunk.index(x, y, z)] = state;
   }
 
   /**
@@ -58,9 +60,8 @@ export class Chunk {
   dirty = false;
 
   /** Like setBlock, but remembers the change so it is saved. */
-  editBlock(x: number, y: number, z: number, blockId: number, metadata = 0): void {
+  editBlock(x: number, y: number, z: number, state: number): void {
     const index = Chunk.index(x, y, z);
-    const state = (blockId << 4) | (metadata & 0xf);
     this.blocks[index] = state;
     this.edits.set(index, state);
     this.dirty = true;
@@ -80,25 +81,22 @@ export class Chunk {
     }
   }
 
-  /** x and z are 0-15. IDs: 1 plains, 2 desert, 4 forest, 12 ice plains, 3 extreme hills... */
-  setBiome(x: number, z: number, biomeId: number): void {
-    this.biomes[(z << 4) | x] = biomeId;
+  /** x and z are 0-15. The ID is the biome's number, see biomeIds.ts. */
+  setBiome(x: number, z: number, biome: number): void {
+    this.biomes[(z << 4) | x] = biome;
   }
 
   getBiome(x: number, z: number): number {
     return this.biomes[(z << 4) | x];
   }
 
-  private isSectionEmpty(section: number): boolean {
-    const start = section * BLOCKS_PER_SECTION;
-    for (let i = start; i < start + BLOCKS_PER_SECTION; i++) {
-      if (this.blocks[i] !== 0) return false;
-    }
-    return true;
+  /** The biome of every column, indexed (z << 4) | x. Read-only. */
+  getRawBiomes(): Readonly<Uint8Array> {
+    return this.biomes;
   }
 
   /**
-   * The chunk's blocks as stored: (blockId << 4) | metadata, indexed (y << 8) | (z << 4) | x.
+   * The chunk's blocks as stored: block state numbers, indexed (y << 8) | (z << 4) | x.
    * Read-only: change blocks with setBlock / editBlock.
    */
   getRawBlocks(): Readonly<Uint16Array> {
@@ -118,7 +116,7 @@ export class Chunk {
     const heights = new Int16Array(256);
     for (let column = 0; column < 256; column++) {
       let y = 255;
-      while (y >= 0 && OPACITY_TABLE[this.blocks[(y << 8) | column] >> 4] === 0) y--;
+      while (y >= 0 && OPACITY_TABLE[this.blocks[(y << 8) | column]] === 0) y--;
       heights[column] = y + 1;
     }
     return (this.heightMap = heights);
@@ -147,46 +145,4 @@ export class Chunk {
   invalidateLight(): void {
     this.light = null;
   }
-
-  /**
-   * Turns the chunk into the bytes the 1.8 Chunk Data packet wants.
-   *
-   * `sectionMask` has bit N set if section N is included. The data is:
-   *   1. block states of every included section (2 bytes each, little-endian!)
-   *   2. block light of every included section  (half a byte per block)
-   *   3. sky light of every included section    (half a byte per block)
-   *   4. 256 biome IDs (one per x/z column)
-   */
-  serialize(light?: ChunkLight): { sectionMask: number; data: Buffer } {
-    // Callers that don't have the neighbouring chunks (tests, tools) get light
-    // computed from this chunk alone. The server passes World.getLight(chunk).
-    const lit = light ?? computeLightAlone(this);
-
-    const sections: number[] = [];
-    for (let s = 0; s < SECTION_COUNT; s++) {
-      if (!this.isSectionEmpty(s)) sections.push(s);
-    }
-
-    const blockData = Buffer.alloc(sections.length * BLOCKS_PER_SECTION * 2);
-    let offset = 0;
-    for (const s of sections) {
-      const start = s * BLOCKS_PER_SECTION;
-      for (let i = start; i < start + BLOCKS_PER_SECTION; i++) {
-        offset = blockData.writeUInt16LE(this.blocks[i], offset);
-      }
-    }
-
-    const blockLight = packLight(lit.block, sections);
-    const skyLight = packLight(lit.sky, sections);
-    const biomes = Buffer.from(this.biomes);
-
-    let sectionMask = 0;
-    for (const s of sections) sectionMask |= 1 << s;
-
-    return { sectionMask, data: Buffer.concat([blockData, blockLight, skyLight, biomes]) };
-  }
-}
-
-function computeLightAlone(chunk: Chunk): ChunkLight {
-  return computeLight(chunk.getRawBlocks() as Uint16Array, chunk.getHeightMap());
 }

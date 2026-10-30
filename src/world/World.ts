@@ -62,19 +62,15 @@ export class World {
    *   local = x & 15   (the remainder, always 0-15)
    */
 
-  getBlockId(pos: BlockPosition): number {
+  /** The block state at this position (see blockStates.ts). Outside the build height it is air. */
+  getState(pos: BlockPosition): number {
     if (pos.y < 0 || pos.y > 255) return 0;
-    return this.getChunk(pos.x >> 4, pos.z >> 4).getBlockId(pos.x & 15, pos.y, pos.z & 15);
+    return this.getChunk(pos.x >> 4, pos.z >> 4).getState(pos.x & 15, pos.y, pos.z & 15);
   }
 
-  getBlockMetadata(pos: BlockPosition): number {
-    if (pos.y < 0 || pos.y > 255) return 0;
-    return this.getChunk(pos.x >> 4, pos.z >> 4).getBlockMetadata(pos.x & 15, pos.y, pos.z & 15);
-  }
-
-  setBlock(pos: BlockPosition, blockId: number, metadata = 0): void {
+  setBlock(pos: BlockPosition, state: number): void {
     if (pos.y < 0 || pos.y > 255) return;
-    this.getChunk(pos.x >> 4, pos.z >> 4).editBlock(pos.x & 15, pos.y, pos.z & 15, blockId, metadata);
+    this.getChunk(pos.x >> 4, pos.z >> 4).editBlock(pos.x & 15, pos.y, pos.z & 15, state);
 
     // Light in a neighbouring chunk depends on this chunk's column heights near the border.
     const localX = pos.x & 15;
@@ -192,7 +188,7 @@ export class World {
   getSpawnHeight(x: number, z: number): number {
     const chunk = this.getChunk(x >> 4, z >> 4);
     for (let y = 255; y >= 0; y--) {
-      if (chunk.getBlockId(x & 15, y, z & 15) !== Block.Air) return y + 1;
+      if (chunk.getState(x & 15, y, z & 15) !== Block.Air) return y + 1;
     }
     return 64; // empty column (void world): pick something sane
   }

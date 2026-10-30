@@ -9,7 +9,7 @@ import { logger } from "./util/logger";
  *   stop force   -> shuts down even if some changes could not be saved
  * Everything else (say, op, deop, ops, list, save, help) is in consoleCommands.ts.
  */
-logger.info("Quarry.ts: Minecraft 1.8.9 server");
+logger.info("Quarry.ts: Minecraft 1.21.11 server");
 const server = new MinecraftServer();
 server.start();
 

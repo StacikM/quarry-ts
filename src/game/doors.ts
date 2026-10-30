@@ -2,164 +2,156 @@ import type { MinecraftServer } from "./Server";
 import type { World } from "../world/World";
 import type { BlockPosition } from "../world/BlockPosition";
 import { Block } from "../world/blocks";
-import { lightOpacity } from "../world/lightData";
+import { defaultState, describeState, withProps } from "../world/blockStates";
+import { hasSturdyTop, isFullCube } from "../world/blockShapes";
 
 /**
- * Doors, following the 1.8.9 rules.
+ * Doors, following the 1.21 rules.
  *
- * A door is TWO blocks tall. Each half has its own block id (the same for both)
- * and metadata:
- *   lower half: bits 0-1 = which way it faces, bit 2 (value 4) = open
- *   upper half: bit 3 (value 8) marks it as the upper half,
- *               bit 0 (value 1) = hinge on the right instead of the left
- * Only the lower half stores "open"; the client reads it from there for both.
+ * A door is TWO blocks tall. Both halves are the same block, told apart by their
+ * properties:
+ *   half   = lower | upper
+ *   facing = north | south | west | east   (the way the player who placed it looked)
+ *   hinge  = left | right                  (which side it swings from)
+ *   open   = true | false
+ * Both halves keep the same facing, hinge and open values, so toggling means changing both.
  */
 
-/** What you hold in your hand (an item id above 255) -> the block it places. */
-export const DOOR_ITEM_TO_BLOCK: Readonly<Record<number, number>> = {
-  324: 64, // oak door
-  330: 71, // iron door
-  427: 193, // spruce door
-  428: 194, // birch door
-  429: 195, // jungle door
-  430: 196, // acacia door
-  431: 197, // dark oak door
-};
-
-const DOOR_BLOCKS = new Set(Object.values(DOOR_ITEM_TO_BLOCK));
-const IRON_DOOR = 71;
-const UPPER_HALF = 8;
-const OPEN = 4;
-
-// Blocks that stop light but are NOT full cubes. Vanilla's door rules care about the shape, not the light.
-const STAIRS = new Set([53, 67, 108, 109, 114, 128, 134, 135, 136, 156, 163, 164, 180]);
-const SLABS = new Set([44, 126, 182]); // single slabs (double slabs are full cubes)
-const FARMLAND = 60;
-// Full cubes whose material is see-through for gameplay rules (glass-like), so vanilla does not treat them as solid.
-const TRANSLUCENT_CUBES = new Set([46, 89, 169]); // TNT, glowstone, sea lantern
-// Full cubes that can power redstone: a wall for support, but not for the hinge rule.
-const POWER_BLOCKS = new Set([152]); // redstone block
-const HOPPER = 154;
-const SNOW_LAYER = 78;
+const DIRECTIONS = [
+  { name: "south", x: 0, z: 1 },
+  { name: "west", x: -1, z: 0 },
+  { name: "north", x: 0, z: -1 },
+  { name: "east", x: 1, z: 0 },
+];
 
 /** Blocks a door may be placed into, as if they were air. */
-const REPLACEABLE = new Set<number>([Block.Air, 31, 32]); // air, tall grass, dead bush
+const REPLACEABLE = new Set(["air", "cave_air", "void_air", "short_grass", "tall_grass", "fern", "large_fern", "dead_bush", "snow"]);
 
-export function isDoorBlock(blockId: number): boolean {
-  return DOOR_BLOCKS.has(blockId);
+/** The name of the block a state belongs to, e.g. "oak_door". */
+function nameOf(state: number): string {
+  return describeState(state).name;
+}
+
+export function isDoorBlock(state: number): boolean {
+  return nameOf(state).endsWith("_door");
 }
 
 /** Iron doors only open with redstone, which this server does not have. */
-export function canOpenByHand(blockId: number): boolean {
-  return blockId !== IRON_DOOR;
+export function canOpenByHand(state: number): boolean {
+  return nameOf(state) !== "iron_door";
 }
 
-// The four horizontal directions, numbered the way Minecraft numbers them: 0 south, 1 west, 2 north, 3 east.
-const DIRECTIONS = [
-  { x: 0, z: 1 },
-  { x: -1, z: 0 },
-  { x: 0, z: -1 },
-  { x: 1, z: 0 },
-];
+/** The door block that an item places, or undefined if the item is not a door. */
+export function doorFor(itemName: string | undefined): string | undefined {
+  return itemName?.endsWith("_door") ? itemName : undefined;
+}
 
-/** The direction a player looks, from their yaw angle. 0 degrees = south, 90 = west. */
+/** The direction a player looks, from their yaw angle (0 degrees = south, 90 = west), as an index into DIRECTIONS. */
 function directionFromYaw(yaw: number): number {
   return Math.floor(yaw / 90 + 0.5) & 3;
 }
 
 export interface DoorPlan {
   position: BlockPosition; // the lower half
-  blockId: number;
-  lowerMeta: number;
-  upperMeta: number;
+  lower: number; // the state to place there
+  upper: number; // and above it
 }
 
 /**
  * Works out whether a door can be placed at `target` (the lower half) and how
  * it would look, without changing anything. Returns null if it can't go there.
+ * `cursorX/Z` is where on the block the player clicked (0-1), which picks the hinge side.
  */
-export function planDoor(world: World, target: BlockPosition, blockId: number, playerYaw: number): DoorPlan | null {
+export function planDoor(
+  world: World,
+  target: BlockPosition,
+  doorName: string,
+  playerYaw: number,
+  cursor: { x: number; z: number } = { x: 0.5, z: 0.5 },
+): DoorPlan | null {
   if (target.y < 0 || target.y > 254) return null; // the upper half sits one higher, so 255 is the last block
 
   const below = { x: target.x, y: target.y - 1, z: target.z };
-  const upper = { x: target.x, y: target.y + 1, z: target.z };
-  if (!hasSolidTopSurface(world, below)) return null; // needs something to stand on
-  if (!REPLACEABLE.has(world.getBlockId(target)) || !REPLACEABLE.has(world.getBlockId(upper))) return null;
+  const above = up(target);
+  if (!hasSturdyTop(world.getState(below))) return null; // needs something to stand on
+  if (!REPLACEABLE.has(nameOf(world.getState(target))) || !REPLACEABLE.has(nameOf(world.getState(above)))) return null;
 
-  // Hinge: vanilla puts it next to a wall or an existing door so double doors line up.
   const facing = directionFromYaw(playerYaw);
-  const rightSide = offset(target, DIRECTIONS[(facing + 1) & 3]);
-  const leftSide = offset(target, DIRECTIONS[(facing + 3) & 3]);
-  const solidAt = (pos: BlockPosition): number => Number(isNormalCube(world, pos)) + Number(isNormalCube(world, up(pos)));
-  const hasDoorAt = (pos: BlockPosition): boolean => world.getBlockId(pos) === blockId || world.getBlockId(up(pos)) === blockId;
+  const direction = DIRECTIONS[facing];
+  const hinge = hingeSide(world, target, doorName, facing, cursor);
 
-  const hingeRight = (hasDoorAt(leftSide) && !hasDoorAt(rightSide)) || solidAt(rightSide) > solidAt(leftSide);
-
+  const base = defaultState(doorName);
+  const props = { facing: direction.name, hinge, open: false, powered: false };
   return {
     position: target,
-    blockId,
-    lowerMeta: (facing + 1) & 3,
-    upperMeta: UPPER_HALF | (hingeRight ? 1 : 0),
+    lower: withProps(base, { ...props, half: "lower" }),
+    upper: withProps(base, { ...props, half: "upper" }),
   };
+}
+
+/**
+ * Vanilla's hinge rule: next to a wall or an existing door so double doors line
+ * up; otherwise by which half of the block you clicked.
+ */
+function hingeSide(world: World, target: BlockPosition, doorName: string, facing: number, cursor: { x: number; z: number }): "left" | "right" {
+  const left = DIRECTIONS[(facing + 3) & 3]; // counter-clockwise from the way the player looks, seen from above
+  const right = DIRECTIONS[(facing + 1) & 3];
+  const leftPos = offset(target, left);
+  const rightPos = offset(target, right);
+
+  const wall = (pos: BlockPosition): number => Number(isFullCube(world.getState(pos))) + Number(isFullCube(world.getState(up(pos))));
+  const balance = wall(rightPos) - wall(leftPos);
+  const isLowerDoor = (pos: BlockPosition): boolean => {
+    const state = world.getState(pos);
+    return nameOf(state) === doorName && describeState(state).properties.half === "lower";
+  };
+  const leftDoor = isLowerDoor(leftPos);
+  const rightDoor = isLowerDoor(rightPos);
+
+  if ((leftDoor && !rightDoor) || balance > 0) return "right";
+  if ((rightDoor && !leftDoor) || balance < 0) return "left";
+
+  const direction = DIRECTIONS[facing];
+  const rightSideClicked =
+    (direction.x < 0 && cursor.z < 0.5) || (direction.x > 0 && cursor.z > 0.5) || (direction.z < 0 && cursor.x > 0.5) || (direction.z > 0 && cursor.x < 0.5);
+  return rightSideClicked ? "right" : "left";
 }
 
 /** Puts both halves in the world and tells every player. */
 export function placeDoor(server: MinecraftServer, plan: DoorPlan): void {
-  server.setBlock(plan.position, plan.blockId, plan.lowerMeta);
-  server.setBlock(up(plan.position), plan.blockId, plan.upperMeta);
+  server.setBlock(plan.position, plan.lower);
+  server.setBlock(up(plan.position), plan.upper);
 }
 
 /** Opens a closed door or closes an open one. `pos` can be either half. */
 export function toggleDoor(server: MinecraftServer, pos: BlockPosition): void {
   const world = server.world;
-  const blockId = world.getBlockId(pos);
-  const lower = world.getBlockMetadata(pos) & UPPER_HALF ? down(pos) : pos;
+  const state = world.getState(pos);
+  const isUpper = describeState(state).properties.half === "upper";
+  const lowerPos = isUpper ? down(pos) : pos;
+  const upperPos = up(lowerPos);
 
-  if (world.getBlockId(lower) !== blockId) return; // the other half is missing
-  const meta = world.getBlockMetadata(lower);
-  if (meta & UPPER_HALF) return;
+  const lower = world.getState(lowerPos);
+  const upper = world.getState(upperPos);
+  if (nameOf(lower) !== nameOf(state) || nameOf(upper) !== nameOf(state)) return; // a half is missing
 
-  server.setBlock(lower, blockId, meta ^ OPEN);
+  const open = describeState(lower).properties.open !== "true";
+  server.setBlock(lowerPos, withProps(lower, { open }));
+  server.setBlock(upperPos, withProps(upper, { open }));
 }
 
 /**
  * Call after a door block was broken: removes the other half too, so you
- * never get half a door floating in the air.
+ * never get half a door floating in the air. `state` is the state that was broken.
  */
-export function removeOtherDoorHalf(server: MinecraftServer, pos: BlockPosition, blockId: number, meta: number): void {
-  const other = meta & UPPER_HALF ? down(pos) : up(pos);
-  const world = server.world;
-  if (world.getBlockId(other) !== blockId) return;
-  if (Boolean(world.getBlockMetadata(other) & UPPER_HALF) === Boolean(meta & UPPER_HALF)) return; // same half: not ours
+export function removeOtherDoorHalf(server: MinecraftServer, pos: BlockPosition, state: number): void {
+  const isUpper = describeState(state).properties.half === "upper";
+  const other = isUpper ? down(pos) : up(pos);
+  const otherState = server.world.getState(other);
+  if (nameOf(otherState) !== nameOf(state)) return;
+  if ((describeState(otherState).properties.half === "upper") === isUpper) return; // same half: not ours
 
-  server.setBlock(other, Block.Air, 0);
-}
-
-/** An opaque full cube: stone, dirt, planks... Not stairs, slabs, farmland, glass, leaves or glowstone. */
-function isOpaqueFullCube(id: number): boolean {
-  return id !== Block.Air && lightOpacity(id) === 255 && !STAIRS.has(id) && !SLABS.has(id) && id !== FARMLAND && !TRANSLUCENT_CUBES.has(id);
-}
-
-/**
- * Vanilla's "normal cube", used for the hinge: an opaque full cube that does not
- * provide redstone power. (Floor support below deliberately does NOT have the power rule.)
- */
-function isNormalCube(world: World, pos: BlockPosition): boolean {
-  const id = world.getBlockId(pos);
-  return isOpaqueFullCube(id) && !POWER_BLOCKS.has(id);
-}
-
-/**
- * Whether something can hold a door up (vanilla's "solid top surface"): a full
- * cube, an upside-down stair, a top-half slab, a hopper, or a full-height snow layer.
- */
-function hasSolidTopSurface(world: World, pos: BlockPosition): boolean {
-  const id = world.getBlockId(pos);
-  const meta = world.getBlockMetadata(pos);
-  if (isOpaqueFullCube(id)) return true;
-  if (STAIRS.has(id)) return (meta & 4) !== 0; // bit 4 = upside down
-  if (SLABS.has(id)) return (meta & 8) !== 0; // bit 8 = top half
-  return id === HOPPER || (id === SNOW_LAYER && meta === 7);
+  server.setBlock(other, Block.Air);
 }
 
 function offset(pos: BlockPosition, direction: { x: number; z: number }): BlockPosition {

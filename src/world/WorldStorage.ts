@@ -3,6 +3,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { logger } from "../util/logger";
 import { writeFileAtomic } from "../util/atomicWrite";
+import { STATE_COUNT } from "./blockStates";
 
 /**
  * Saves the blocks that players changed, one small file per chunk.
@@ -15,12 +16,13 @@ import { writeFileAtomic } from "../util/atomicWrite";
  *
  * File layout (all numbers little-endian), after the header the rest is deflated:
  *   "MCED" (4 bytes) | format version (1 byte) | deflate( count: u32, then count x [index: u16, state: u16] )
- * `index` is the block's position in the chunk and `state` is (blockId << 4) | metadata,
- * exactly the values Chunk uses internally. deflate also gives us a checksum,
+ * `index` is the block's position in the chunk and `state` is the block state number
+ * Chunk uses internally (the one the Minecraft 1.21.11 protocol uses). deflate also gives us a checksum,
  * so a damaged file is detected instead of being loaded as garbage.
  */
 const MAGIC = Buffer.from("MCED");
-const FORMAT_VERSION = 1;
+/** Version 2: states are 1.21.11 block state numbers. (Version 1 held 1.8 ids and is never read.) */
+const FORMAT_VERSION = 2;
 const BLOCKS_PER_CHUNK = 16 * 16 * 256;
 /** The biggest valid payload: a count plus one 4-byte entry for every block in the chunk. */
 const MAX_PAYLOAD_BYTES = 4 + BLOCKS_PER_CHUNK * 4;
@@ -121,7 +123,7 @@ export function decodeEdits(file: Buffer): ChunkEdits {
     const index = payload.readUInt16LE(offset);
     const state = payload.readUInt16LE(offset + 2);
     // (A u16 index can't be out of range: 65535 is the last of the 65536 blocks.)
-    if (state >> 4 > 255) throw new Error("block id out of range");
+    if (state >= STATE_COUNT) throw new Error("block state out of range");
     edits.set(index, state);
   }
   return edits;

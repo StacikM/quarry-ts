@@ -2,6 +2,7 @@
 import { Chunk } from "../src/world/Chunk";
 import { Block } from "../src/world/blocks";
 import { NaturalGenerator } from "../src/world/terrain/NaturalGenerator";
+import { Biome } from "../src/world/terrain/biomes";
 
 const [seed = 1337, centerX = 0, centerZ = 0] = process.argv.slice(2).map(Number);
 if (![seed, centerX, centerZ].every(Number.isFinite)) throw new Error("Arguments must be finite numbers");
@@ -14,18 +15,22 @@ function chunkAt(x: number, z: number): Chunk {
   return chunk;
 }
 function blockAt(x: number, y: number, z: number): number {
-  return chunkAt(x, z).getBlockId(((x % 16) + 16) % 16, y, ((z % 16) + 16) % 16);
+  return chunkAt(x, z).getState(((x % 16) + 16) % 16, y, ((z % 16) + 16) % 16);
 }
 const symbols: Record<number, string> = {
   [Block.Air]: " ", [Block.Stone]: "#", [Block.Grass]: "G", [Block.Dirt]: ".",
   [Block.Bedrock]: "X", [Block.Water]: "~", [Block.Lava]: "L", [Block.Sand]: ":",
   [Block.Gravel]: ";", [Block.Log]: "T", [Block.Leaves]: "*", [Block.Snow]: "s",
+  [Block.SpruceLog]: "T", [Block.BirchLog]: "T", [Block.SpruceLeaves]: "*", [Block.BirchLeaves]: "*",
   [Block.CoalOre]: "c", [Block.IronOre]: "i", [Block.GoldOre]: "g",
   [Block.DiamondOre]: "D", [Block.RedstoneOre]: "r", [Block.LapisOre]: "l",
   [Block.TallGrass]: '"', [Block.DeadBush]: "d", [Block.Dandelion]: "f", [Block.Poppy]: "F",
   [Block.Cactus]: "C", [Block.SugarCane]: "|",
 };
-const biomeSymbols: Record<number, string> = { 0: "~", 1: ".", 2: "d", 3: "^", 4: "f", 7: "r", 12: "s", 16: ":" };
+const biomeSymbols: Record<number, string> = {
+  [Biome.Ocean]: "~", [Biome.Plains]: ".", [Biome.Desert]: "d", [Biome.Mountains]: "^",
+  [Biome.Forest]: "f", [Biome.River]: "r", [Biome.Snow]: "s", [Biome.Beach]: ":",
+};
 const startX = Math.floor(centerX) - 48, startZ = Math.floor(centerZ) - 24;
 console.log(`Seed ${seed}; center ${centerX},${centerZ}. Top blocks, 96 x 48:`);
 console.log('G grass, * leaves, T logs, ~ water, : sand, ; gravel, s snow, # stone, " tall grass, f/F flowers, d bush, C cactus, | cane');

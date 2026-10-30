@@ -83,7 +83,7 @@ export function computeLight(
     const outsideHeight = Math.min(...outside.map((h) => (h >= 0 ? h : 256)));
     for (let y = outsideHeight; y < height; y++) {
       const cell = (y << 8) | column;
-      const value = 15 - Math.max(1, OPACITY_TABLE[blocks[cell] >> 4]);
+      const value = 15 - Math.max(1, OPACITY_TABLE[blocks[cell]]);
       if (value > sky[cell]) {
         sky[cell] = value;
         queue.push(cell);
@@ -95,7 +95,7 @@ export function computeLight(
   // ---- Block light: start from every glowing block.
   queue.length = 0;
   for (let cell = 0; cell < CELLS; cell++) {
-    const emission = EMISSION_TABLE[blocks[cell] >> 4];
+    const emission = EMISSION_TABLE[blocks[cell]];
     if (emission > 0) {
       block[cell] = emission;
       queue.push(cell);
@@ -126,7 +126,7 @@ function spread(light: Uint8Array, blocks: Uint16Array, queue: number[]): void {
   }
 
   function enter(neighbor: number, from: number): void {
-    const next = from - Math.max(1, OPACITY_TABLE[blocks[neighbor] >> 4]);
+    const next = from - Math.max(1, OPACITY_TABLE[blocks[neighbor]]);
     if (next > light[neighbor]) {
       light[neighbor] = next;
       queue.push(neighbor);

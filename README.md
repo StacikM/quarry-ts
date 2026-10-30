@@ -1,8 +1,8 @@
 # Quarry.ts
 
-A Minecraft **1.8.9** server written in TypeScript, kept small enough to read.
+A Minecraft **1.21.11** server written in TypeScript, kept small enough to read. (This is the `mc-1.21.11` branch; the `main` branch is the same server for 1.8.9.)
 
-It has generated terrain (biomes, caves, ores, trees, plants), players who can see each other, chat, commands, block building and breaking, a plugin system, and a world that is saved to disk. It runs in offline mode (see "Not implemented").
+It has generated terrain (biomes, caves, ores, trees, plants), players who can see each other, chat, commands, block building and breaking, a plugin system, and a world that is saved to disk. It runs in offline mode (see "Not implemented"), or behind a Velocity proxy, and uses little memory: it is meant for things like lobby servers.
 
 ## About this project: 100% AI-generated, and tested
 
@@ -13,8 +13,9 @@ Created and directed by **Stacik**.
 "Tested" here means specific things, so you can judge for yourself:
 
 - **Automated tests.** `npm run check` type-checks everything and runs the test suites: terrain generation (the same seed gives the same world in any order), world saving including damaged and unreadable files, the plugin system, lighting, doors, moderation and the console, and the network protocol.
-- **Checked against the real game, not just against our own code.** Light and glow values for every block were read from the real Minecraft 1.8.9 and are compared in the tests. Network packets are decoded with an independent library (PrismarineJS) that we did not write.
-- **Played in a real Minecraft 1.8.9 client.** That found real bugs (black blocks after breaking a cactus, doors that did nothing), which were fixed and now have tests.
+- **Checked against the real game, not just against our own code.** Block states, light and glow values, and collision shapes come from the community data set minecraft-data (every one of the 29,671 block states is checked against an independent decoder), and the standard tag lists were read from the game itself. Network packets are decoded with an independent library (PrismarineJS) that we did not write.
+- **A real client joins over a real connection in the tests.** `minecraft-protocol`, a separate implementation of the 1.21.11 protocol, logs in, receives the chunks (compared block for block with the server's world), chats, runs commands, and places and breaks blocks.
+- **Played in a real Minecraft client.** On the 1.8.9 branch that found real bugs (black blocks after breaking a cactus, doors that did nothing), which were fixed and now have tests. On this branch, the real 1.21.11 client found that it needs the standard tag lists before it will join; that is fixed too.
 
 What it is **not**: it has not had a human code review or a security audit, it has not been run with many players at once, and it runs in offline mode, so players are not authenticated. Treat it as a learning project and do not expose it to the internet. See "Not implemented" below.
 
@@ -31,7 +32,9 @@ npm run play       # build and start the server: use this to actually play
 
 **Why teleporting and flying don't freeze the server:** chunks are not all sent at once. Only the 3x3 around you arrive immediately, so you never fall through the world, and the rest stream in a few per tick, nearest first. The budget is `chunkBudgetMs` in [src/config.ts](src/config.ts). Autosaves are spread over ticks the same way. `/perf` shows how many chunks are still waiting.
 
-In Minecraft 1.8.9: Multiplayer, then Add Server, then `localhost`.
+In Minecraft 1.21.11: Multiplayer, then Add Server, then `localhost`. The server only accepts 1.21.11 clients.
+
+**Behind a Velocity proxy:** create a file `velocity.json` next to where you start the server, with `{ "enabled": true, "secret": "the text in Velocity's forwarding.secret" }` (or set the environment variable `QUARRY_VELOCITY_SECRET`), and set `player-info-forwarding-mode = "modern"` in Velocity's `velocity.toml`. The server then takes each player's name, UUID and real IP address from the proxy, checks the proxy's signature, and **refuses direct connections**. Keep the port closed to the internet, so that only the proxy can reach it. The file is ignored by git because it holds a password.
 
 **Before you play:** type `op YourMinecraftName` in the server console (it saves the name to an `ops.json` file in the folder you start the server from, which you can also edit by hand, like `["YourName"]`). Operators can use `/gamemode` and `/tp` and can build inside the spawn protection area. The file is ignored by git, so your name is never committed. Everything else you may want to change is in [src/config.ts](src/config.ts): the seed, the port, the MOTD, view distance, and whether the world is `"natural"` or `"flat"`.
 
@@ -88,7 +91,8 @@ Read the files roughly in this order.
 | [src/network/VarInt.ts](src/network/VarInt.ts) | The variable-length integer format used all over the protocol. |
 | [src/network/PacketReader.ts](src/network/PacketReader.ts) | Reads fields (ints, strings, positions...) out of an incoming packet. |
 | [src/network/PacketWriter.ts](src/network/PacketWriter.ts) | Builds outgoing packets field by field. |
-| [src/network/Connection.ts](src/network/Connection.ts) | One client's socket. Cuts the byte stream into packets and routes each one by connection state. |
+| [src/network/framing.ts](src/network/framing.ts) | Packet compression (large packets such as chunks are zipped). |
+| [src/network/Connection.ts](src/network/Connection.ts) | One client's socket. Cuts the byte stream into packets and routes each one by connection state (handshake, status, login, configuration, play). |
 
 **Protocol: what the packets mean**
 
@@ -96,6 +100,8 @@ Read the files roughly in this order.
 | --- | --- |
 | [src/protocol/packetIds.ts](src/protocol/packetIds.ts) | Every packet ID used, grouped by state and direction. |
 | [src/protocol/clientbound.ts](src/protocol/clientbound.ts) | One function per packet the server sends. |
+| [src/protocol/chunkEncoding.ts](src/protocol/chunkEncoding.ts) | Turns a chunk into the packet's bytes (block palettes, biomes, light). |
+| [src/protocol/registryKeys.ts](src/protocol/registryKeys.ts), [vanillaTags.ts](src/protocol/vanillaTags.ts) | Generated lists the client needs while joining (biome names, damage types, standard tags). |
 | [src/protocol/handlers/](src/protocol/handlers/) | Handlers for incoming packets, one file per state. `play.ts` is where chat, movement and block changes arrive, and where plugin events are fired. |
 
 **Game: players and the server**
@@ -151,10 +157,11 @@ Plugins can listen to `playerJoin`, `playerQuit`, `playerChat`, `playerCommand`,
 
 ## How a connection works
 
-1. **Handshake**: the client sends its protocol version (47 for 1.8.x) and whether it wants Status or Login.
+1. **Handshake**: the client sends its protocol version (774 for 1.21.11) and whether it wants Status or Login.
 2. **Status**: the server answers the server-list ping with the MOTD and player count.
-3. **Login**: the client sends its name and the server replies with Login Success.
-4. **Play**: the server sends Join Game, the chunks around the player, and the player's position. After that both sides exchange packets until someone disconnects.
+3. **Login**: the client sends its name; the server turns on compression and replies with Login Success (behind Velocity it first asks the proxy who the player really is).
+4. **Configuration**: the server sends the lists the game needs (biomes, damage types, tags...) by name, because the client already has the standard data.
+5. **Play**: the server sends Login, the player's position and the chunks around them. After that both sides exchange packets until someone disconnects.
 
 ## How the world is saved
 
@@ -169,10 +176,9 @@ Two things to know:
 ## Not implemented (good things to try adding)
 
 - **Online mode.** Right now the server trusts whatever username a client sends, so anyone can join as anyone, and nobody has a skin. Do not open this server to the internet as it is.
-- Packet compression
 - Inventories, health and hunger, item drops
 - Mobs
-- Light that spreads sideways, and light from torches or lava (sunlight only goes straight down)
+- Block tags beyond the standard lists (nothing here adds custom ones), block entities such as chests and signs, and a world taller than 256 blocks (building stops at y=255)
 
 ## License
 

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { stateOf } from "../src/world/blockStates";
 
 const originalDirectory = process.cwd();
 const guide = fs.readFileSync(path.join(originalDirectory, "docs/PLUGINS.md"), "utf8");
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
   assert.equal(broadcasts.pop(), "[Notice] hello world");
   alice.isOp = false;
   for (const eventName of ["blockBreak", "blockPlace"] as const) {
-    const payload = { player: alice, position: { x: 24, y: 100, z: 0 }, blockId: 1, metadata: 0, cancelled: false };
+    const payload = { player: alice, position: { x: 24, y: 100, z: 0 }, state: stateOf('stone'), cancelled: false };
     assert.equal(manager.events.emit(eventName, payload).cancelled, true);
     assert.equal(manager.events.emit(eventName, { ...payload, cancelled: false, position: { x: 25, y: 100, z: 0 } }).cancelled, false);
     alice.isOp = true;

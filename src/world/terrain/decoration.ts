@@ -14,8 +14,8 @@ export function decorate(chunk: Chunk, seed: number, terrain: TreeTerrain): void
     if (Math.abs(wx) <= 1 && Math.abs(wz) <= 1) continue;
     const hash = hash2(seed ^ 0x4deca, wx, wz) >>> 0;
     const height = terrain.heightAt(wx, wz), y = height + 1;
-    if (chunk.getBlockId(x, y, z) !== Block.Air) continue;
-    const surface = chunk.getBlockId(x, height, z);
+    if (chunk.getState(x, y, z) !== Block.Air) continue;
+    const surface = chunk.getState(x, height, z);
     const biome = chunk.getBiome(x, z);
     // Water must be adjacent at the supporting block's elevation.
     if (height === 62 && (surface === Block.Sand || surface === Block.Grass) && hash % 5 === 0
@@ -43,7 +43,7 @@ export function decorate(chunk: Chunk, seed: number, terrain: TreeTerrain): void
     } else if (surface === Block.Grass && (biome === Biome.Plains || biome === Biome.Forest)) {
       if (hash % 89 === 0) chunk.setBlock(x, y, z, Block.Dandelion);
       else if (hash % 97 === 0) chunk.setBlock(x, y, z, Block.Poppy);
-      else if (hash % (biome === Biome.Plains ? 7 : 12) === 0) chunk.setBlock(x, y, z, Block.TallGrass, 1);
+      else if (hash % (biome === Biome.Plains ? 7 : 12) === 0) chunk.setBlock(x, y, z, Block.TallGrass);
     }
   }
 }

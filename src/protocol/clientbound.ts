@@ -2,21 +2,32 @@
  * One function per packet the server sends to clients.
  *
  * Each function just writes the fields in the order the protocol expects
- * and returns the PacketWriter. To send one: player.send(chatMessage(...))
+ * and returns the PacketWriter. To send one: player.send(systemChat(...))
  */
 import { PacketWriter } from "../network/PacketWriter";
-import { LoginOut, PlayOut, StatusOut } from "./packetIds";
+import { ConfigOut, LoginOut, PlayOut, StatusOut } from "./packetIds";
+import { REGISTRY_KEYS } from "./registryKeys";
+import { allTags } from "./tags";
+import { encodeChunk } from "./chunkEncoding";
 import type { Player } from "../game/Player";
 import type { Chunk } from "../world/Chunk";
 import type { ChunkLight } from "../world/lighting";
 import type { BlockPosition } from "../world/BlockPosition";
-import type { GameMode } from "../game/GameMode";
+import { GameMode } from "../game/GameMode";
 
 /** A chat "component". Minecraft supports much more, but this is enough. */
 export interface ChatComponent {
   text: string;
   color?: string; // "yellow", "red", "gray", ...
 }
+
+const OVERWORLD = "minecraft:overworld";
+
+/** Entity type number of a player in the 1.21.11 entity registry (checked against minecraft-data in protocol-check). */
+export const PLAYER_ENTITY_TYPE = 155;
+
+/** Sea level sent to the client (the water surface height of our terrain). */
+const SEA_LEVEL = 63;
 
 // ---------------------------------------------------------------- Status ---
 
@@ -30,57 +41,172 @@ export function pong(payload: bigint): PacketWriter {
 
 // ----------------------------------------------------------------- Login ---
 
+/** Login errors are JSON text; this is the only place that still is. */
 export function loginDisconnect(reason: ChatComponent): PacketWriter {
   return new PacketWriter(LoginOut.Disconnect).writeChat(reason);
 }
 
 export function loginSuccess(uuid: string, username: string): PacketWriter {
-  return new PacketWriter(LoginOut.LoginSuccess).writeString(uuid).writeString(username);
+  return new PacketWriter(LoginOut.LoginSuccess)
+    .writeUUID(uuid)
+    .writeString(username)
+    .writeVarInt(0); // properties (skins come from here; offline mode has none)
+}
+
+/** From now on, packets of at least `threshold` bytes are compressed in both directions. */
+export function setCompression(threshold: number): PacketWriter {
+  return new PacketWriter(LoginOut.SetCompression).writeVarInt(threshold);
+}
+
+/** Asks a Velocity proxy for the player's real identity. See handlers/login.ts. */
+export function velocityPlayerInfoRequest(messageId: number, maxVersion: number): PacketWriter {
+  return new PacketWriter(LoginOut.PluginRequest)
+    .writeVarInt(messageId)
+    .writeString("velocity:player_info")
+    .writeUnsignedByte(maxVersion);
+}
+
+// --------------------------------------------------------- Configuration ---
+
+export function configDisconnect(reason: ChatComponent): PacketWriter {
+  return new PacketWriter(ConfigOut.Disconnect).writeTextComponent(reason);
+}
+
+/** Tells the client what software the server is (shown in the F3 screen). */
+export function serverBrand(brand: string): PacketWriter {
+  return new PacketWriter(ConfigOut.PluginMessage).writeString("minecraft:brand").writeString(brand);
+}
+
+export function featureFlags(flags: string[]): PacketWriter {
+  const packet = new PacketWriter(ConfigOut.FeatureFlags).writeVarInt(flags.length);
+  for (const flag of flags) packet.writeString(flag);
+  return packet;
+}
+
+/**
+ * "Do you have the standard game data?" If the client says yes, we only have to
+ * send the NAMES of biomes, damage types and so on, not their (large) definitions.
+ */
+export function knownPacksRequest(version: string): PacketWriter {
+  return new PacketWriter(ConfigOut.KnownPacks)
+    .writeVarInt(1)
+    .writeString("minecraft")
+    .writeString("core")
+    .writeString(version);
+}
+
+/** One registry (a numbered list of things, e.g. all the biomes), by name only. */
+export function registryData(registry: string, keys: readonly string[]): PacketWriter {
+  const packet = new PacketWriter(ConfigOut.RegistryData).writeString(registry).writeVarInt(keys.length);
+  for (const key of keys) {
+    packet.writeString(key).writeBoolean(false); // false: no data, the client uses its own copy
+  }
+  return packet;
+}
+
+/** Every registry the client wants, in the order it expects them. */
+export function allRegistryData(): PacketWriter[] {
+  return Object.entries(REGISTRY_KEYS).map(([registry, keys]) => registryData(registry, keys));
+}
+
+/** The tag groups the client insists on having (see tags.ts). */
+export function tagsPacket(): PacketWriter {
+  const registries = allTags();
+  const packet = new PacketWriter(ConfigOut.Tags).writeVarInt(registries.length);
+  for (const { registry, tags } of registries) {
+    packet.writeString(registry).writeVarInt(tags.length);
+    for (const { name, entries } of tags) packet.writeString(name).writeVarIntArray(entries);
+  }
+  return packet;
+}
+
+export function finishConfiguration(): PacketWriter {
+  return new PacketWriter(ConfigOut.FinishConfiguration);
 }
 
 // ------------------------------------------------------------------ Play ---
 
 export function keepAlive(id: number): PacketWriter {
-  return new PacketWriter(PlayOut.KeepAlive).writeVarInt(id);
+  return new PacketWriter(PlayOut.KeepAlive).writeLong(BigInt(id));
 }
 
-export function joinGame(entityId: number, gameMode: GameMode, maxPlayers: number): PacketWriter {
-  return new PacketWriter(PlayOut.JoinGame)
+export function joinGame(entityId: number, gameMode: GameMode, maxPlayers: number, viewDistance: number): PacketWriter {
+  const dimension = REGISTRY_KEYS["minecraft:dimension_type"].indexOf(OVERWORLD);
+  if (dimension < 0) throw new Error("The dimension list has no overworld");
+  return new PacketWriter(PlayOut.Login)
     .writeInt(entityId)
-    .writeUnsignedByte(gameMode)
-    .writeByte(0) // dimension: -1 nether, 0 overworld, 1 end
-    .writeUnsignedByte(0) // difficulty: 0 = peaceful
-    .writeUnsignedByte(maxPlayers) // only used for the tab list layout
-    .writeString("flat") // level type, changes how the sky/horizon looks
-    .writeBoolean(false); // reduced debug info (F3 screen)
+    .writeBoolean(false) // hardcore
+    .writeVarInt(1) // the worlds that exist (just one)
+    .writeString(OVERWORLD)
+    .writeVarInt(maxPlayers) // only used for the tab list layout
+    .writeVarInt(viewDistance)
+    .writeVarInt(viewDistance) // simulation distance
+    .writeBoolean(false) // reduced debug info (F3 screen)
+    .writeBoolean(true) // show the respawn screen when dying
+    .writeBoolean(false) // limited crafting
+    .writeVarInt(dimension) // which dimension type this world uses
+    .writeString(OVERWORLD) // world name
+    .writeLong(0n) // hashed seed (only used for biome noise on the client)
+    .writeByte(gameMode)
+    .writeUnsignedByte(0xff) // previous game mode: -1, none
+    .writeBoolean(false) // debug world
+    .writeBoolean(false) // superflat world
+    .writeBoolean(false) // no death location
+    .writeVarInt(0) // portal cooldown
+    .writeVarInt(SEA_LEVEL)
+    .writeBoolean(false); // enforces secure chat
 }
 
-export function chatMessage(message: ChatComponent): PacketWriter {
-  return new PacketWriter(PlayOut.ChatMessage)
-    .writeChat(message)
-    .writeByte(0); // 0 = chat box, 1 = system message, 2 = above hotbar
+/** Game Event reasons we use. */
+export const GameEvent = {
+  ChangeGameMode: 3,
+  LevelChunksLoadStart: 13,
+} as const;
+
+export function gameEvent(event: number, value: number): PacketWriter {
+  return new PacketWriter(PlayOut.GameEvent).writeUnsignedByte(event).writeFloat(value);
+}
+
+/** Chat lines, kicks and so on. `overlay` shows the text above the hotbar instead of in the chat box. */
+export function systemChat(message: ChatComponent, overlay = false): PacketWriter {
+  return new PacketWriter(PlayOut.SystemChat).writeTextComponent(message).writeBoolean(overlay);
 }
 
 /** Where the compass points. */
 export function spawnPosition(pos: BlockPosition): PacketWriter {
-  return new PacketWriter(PlayOut.SpawnPosition).writePosition(pos);
+  return new PacketWriter(PlayOut.SetDefaultSpawnPosition)
+    .writeString(OVERWORLD)
+    .writePosition(pos)
+    .writeFloat(0) // yaw
+    .writeFloat(0); // pitch
 }
 
-/** Moves the client's own player. The client stays on "Downloading terrain" until it gets this. */
-export function playerPositionAndLook(x: number, y: number, z: number, yaw: number, pitch: number): PacketWriter {
-  return new PacketWriter(PlayOut.PlayerPositionAndLook)
+/**
+ * Moves the client's own player. The client answers with "Teleport Confirm"
+ * carrying the same id, and stays on "Loading terrain" until the chunks have arrived.
+ */
+export function playerPosition(teleportId: number, x: number, y: number, z: number, yaw: number, pitch: number): PacketWriter {
+  return new PacketWriter(PlayOut.PlayerPosition)
+    .writeVarInt(teleportId)
     .writeDouble(x)
     .writeDouble(y)
     .writeDouble(z)
+    .writeDouble(0) // velocity
+    .writeDouble(0)
+    .writeDouble(0)
     .writeFloat(yaw)
     .writeFloat(pitch)
-    .writeByte(0); // flags: 0 = all values are absolute, not relative
+    .writeInt(0); // relative flags: 0 means every value above is absolute
+}
+
+export function setCenterChunk(chunkX: number, chunkZ: number): PacketWriter {
+  return new PacketWriter(PlayOut.SetCenterChunk).writeVarInt(chunkX).writeVarInt(chunkZ);
 }
 
 export function animation(entityId: number, animationId: number): PacketWriter {
   return new PacketWriter(PlayOut.Animation)
     .writeVarInt(entityId)
-    .writeUnsignedByte(animationId); // 0 = swing arm
+    .writeUnsignedByte(animationId); // 0 = swing main arm
 }
 
 /**
@@ -88,84 +214,121 @@ export function animation(entityId: number, animationId: number): PacketWriter {
  * from the tab list (playerListAdd), or it won't show them.
  */
 export function spawnPlayer(player: Player): PacketWriter {
-  return new PacketWriter(PlayOut.SpawnPlayer)
+  return new PacketWriter(PlayOut.SpawnEntity)
     .writeVarInt(player.entityId)
     .writeUUID(player.uuid)
-    .writeFixedPoint(player.x)
-    .writeFixedPoint(player.y)
-    .writeFixedPoint(player.z)
-    .writeAngle(player.yaw)
+    .writeVarInt(PLAYER_ENTITY_TYPE)
+    .writeDouble(player.x)
+    .writeDouble(player.y)
+    .writeDouble(player.z)
+    .writeUnsignedByte(0) // velocity: one zero byte means "not moving"
     .writeAngle(player.pitch)
-    .writeShort(0) // item in hand (0 = nothing)
-    // Entity metadata: a list of (key, value) pairs ending with 0x7F.
-    // The key byte is (type << 5) | index. Here: type 3 (float), index 6 (health).
-    .writeUnsignedByte((3 << 5) | 6)
-    .writeFloat(20)
-    .writeUnsignedByte(0x7f);
+    .writeAngle(player.yaw)
+    .writeAngle(player.yaw) // head rotation
+    .writeVarInt(0); // extra data (unused for players)
 }
 
 export function destroyEntities(entityIds: number[]): PacketWriter {
-  const packet = new PacketWriter(PlayOut.DestroyEntities).writeVarInt(entityIds.length);
-  for (const id of entityIds) {
-    packet.writeVarInt(id);
-  }
-  return packet;
+  return new PacketWriter(PlayOut.RemoveEntities).writeVarIntArray(entityIds);
 }
 
+/** Moves another player to an absolute position (the whole point of "Entity Position Sync"). */
 export function entityTeleport(player: Player): PacketWriter {
-  return new PacketWriter(PlayOut.EntityTeleport)
+  return new PacketWriter(PlayOut.EntityPositionSync)
     .writeVarInt(player.entityId)
-    .writeFixedPoint(player.x)
-    .writeFixedPoint(player.y)
-    .writeFixedPoint(player.z)
-    .writeAngle(player.yaw)
-    .writeAngle(player.pitch)
+    .writeDouble(player.x)
+    .writeDouble(player.y)
+    .writeDouble(player.z)
+    .writeDouble(0) // velocity
+    .writeDouble(0)
+    .writeDouble(0)
+    .writeFloat(player.yaw)
+    .writeFloat(player.pitch)
     .writeBoolean(player.onGround);
 }
 
 /** Body rotation and head rotation are separate; this turns the head. */
 export function entityHeadLook(player: Player): PacketWriter {
-  return new PacketWriter(PlayOut.EntityHeadLook).writeVarInt(player.entityId).writeAngle(player.yaw);
+  return new PacketWriter(PlayOut.HeadRotation).writeVarInt(player.entityId).writeAngle(player.yaw);
+}
+
+export function chunkBatchStart(): PacketWriter {
+  return new PacketWriter(PlayOut.ChunkBatchStart);
+}
+
+export function chunkBatchFinished(count: number): PacketWriter {
+  return new PacketWriter(PlayOut.ChunkBatchFinished).writeVarInt(count);
 }
 
 export function chunkData(chunk: Chunk, light: ChunkLight): PacketWriter {
-  const { sectionMask, data } = chunk.serialize(light);
-  return new PacketWriter(PlayOut.ChunkData)
+  const encoded = encodeChunk(chunk.getRawBlocks() as Uint16Array, chunk.getRawBiomes(), light);
+  const packet = new PacketWriter(PlayOut.ChunkDataAndLight)
     .writeInt(chunk.x)
     .writeInt(chunk.z)
-    .writeBoolean(true) // "ground-up continuous": this is the whole chunk, including biomes
-    .writeUnsignedShort(sectionMask)
-    .writeVarInt(data.length)
-    .writeBytes(data);
+    .writeVarInt(encoded.heightmaps.length);
+  for (const { type, data } of encoded.heightmaps) {
+    packet.writeVarInt(type).writeLongArray(data);
+  }
+  packet
+    .writeVarInt(encoded.data.length)
+    .writeBytes(encoded.data)
+    .writeVarInt(0) // block entities (chests, signs...): none
+    .writeLongArray([encoded.skyLightMask])
+    .writeLongArray([encoded.blockLightMask])
+    .writeLongArray([encoded.emptySkyLightMask])
+    .writeLongArray([encoded.emptyBlockLightMask])
+    .writeVarInt(encoded.skyLight.length);
+  for (const array of encoded.skyLight) packet.writeVarInt(array.length).writeBytes(array);
+  packet.writeVarInt(encoded.blockLight.length);
+  for (const array of encoded.blockLight) packet.writeVarInt(array.length).writeBytes(array);
+  return packet;
 }
 
-/** In 1.8 you unload a chunk by sending it with no sections and no data. */
 export function unloadChunk(chunkX: number, chunkZ: number): PacketWriter {
-  return new PacketWriter(PlayOut.ChunkData)
-    .writeInt(chunkX)
-    .writeInt(chunkZ)
-    .writeBoolean(true)
-    .writeUnsignedShort(0)
-    .writeVarInt(0);
+  return new PacketWriter(PlayOut.UnloadChunk).writeInt(chunkZ).writeInt(chunkX); // z comes first
 }
 
-/** Block states are sent as (blockId << 4) | metadata. */
-export function blockChange(pos: BlockPosition, blockId: number, metadata: number): PacketWriter {
-  return new PacketWriter(PlayOut.BlockChange).writePosition(pos).writeVarInt((blockId << 4) | metadata);
+/** A block changed. `state` is the block state number (see world/blockStates.ts). */
+export function blockChange(pos: BlockPosition, state: number): PacketWriter {
+  return new PacketWriter(PlayOut.BlockUpdate).writePosition(pos).writeVarInt(state);
+}
+
+/** Confirms a dig or place the client sent with this sequence number, so it stops predicting. */
+export function blockChangedAck(sequence: number): PacketWriter {
+  return new PacketWriter(PlayOut.BlockChangedAck).writeVarInt(sequence);
+}
+
+/**
+ * What the player may do. Bits: 1 invulnerable, 2 flying, 4 may fly, 8 creative (instant breaking).
+ * The two floats are the flying speed and the field-of-view modifier of walking (vanilla: 0.05 and 0.1).
+ */
+export function playerAbilities(gameMode: GameMode, flying = false): PacketWriter {
+  let flags = 0;
+  if (gameMode === GameMode.Creative) flags = 1 | 4 | 8;
+  if (gameMode === GameMode.Spectator) flags = 1 | 4;
+  if (flags & 4 && flying) flags |= 2;
+  return new PacketWriter(PlayOut.PlayerAbilities).writeByte(flags).writeFloat(0.05).writeFloat(0.1);
 }
 
 export function changeGameMode(gameMode: GameMode): PacketWriter {
-  return new PacketWriter(PlayOut.ChangeGameState)
-    .writeUnsignedByte(3) // reason 3 = "change game mode"
-    .writeFloat(gameMode);
+  return gameEvent(GameEvent.ChangeGameMode, gameMode);
 }
 
-// The Player List Item packet controls the tab list. Its first field is an
-// "action" saying what kind of update follows.
+/** The time of day: ticks since the world began, the time of day, and whether the clock keeps running. */
+export function timeUpdate(worldAge: number, timeOfDay: number, running: boolean): PacketWriter {
+  return new PacketWriter(PlayOut.SetTime).writeLong(BigInt(worldAge)).writeLong(BigInt(timeOfDay)).writeBoolean(running);
+}
+
+// The Player Info Update packet controls the tab list. Its first field says which
+// pieces of information follow for every player in it.
+const INFO_ADD_PLAYER = 0x01;
+const INFO_GAME_MODE = 0x04;
+const INFO_LISTED = 0x08;
+const INFO_LATENCY = 0x10;
 
 export function playerListAdd(players: Player[]): PacketWriter {
-  const packet = new PacketWriter(PlayOut.PlayerListItem)
-    .writeVarInt(0) // action 0 = add player
+  const packet = new PacketWriter(PlayOut.PlayerInfoUpdate)
+    .writeUnsignedByte(INFO_ADD_PLAYER | INFO_GAME_MODE | INFO_LISTED | INFO_LATENCY)
     .writeVarInt(players.length);
 
   for (const player of players) {
@@ -174,31 +337,57 @@ export function playerListAdd(players: Player[]): PacketWriter {
       .writeString(player.username)
       .writeVarInt(0) // properties (skins come from here; offline mode has none)
       .writeVarInt(player.gameMode)
-      .writeVarInt(0) // ping in ms
-      .writeBoolean(false); // has a custom display name?
+      .writeBoolean(true) // shown in the tab list
+      .writeVarInt(0); // ping in ms
   }
   return packet;
 }
 
 export function playerListUpdateGameMode(player: Player): PacketWriter {
-  return new PacketWriter(PlayOut.PlayerListItem)
-    .writeVarInt(1) // action 1 = update game mode
+  return new PacketWriter(PlayOut.PlayerInfoUpdate)
+    .writeUnsignedByte(INFO_GAME_MODE)
     .writeVarInt(1)
     .writeUUID(player.uuid)
     .writeVarInt(player.gameMode);
 }
 
 export function playerListRemove(players: Player[]): PacketWriter {
-  const packet = new PacketWriter(PlayOut.PlayerListItem)
-    .writeVarInt(4) // action 4 = remove player
-    .writeVarInt(players.length);
-
+  const packet = new PacketWriter(PlayOut.PlayerInfoRemove).writeVarInt(players.length);
   for (const player of players) {
     packet.writeUUID(player.uuid);
   }
   return packet;
 }
 
+/**
+ * The command list that lets the client complete commands while typing and
+ * colours valid ones. Every command takes free text after its name.
+ */
+export function commandTree(names: string[]): PacketWriter {
+  const NODE_ROOT = 0;
+  const NODE_LITERAL = 1;
+  const NODE_ARGUMENT = 2;
+  const HAS_EXECUTABLE = 0x04;
+
+  // Node 0 is the root, then a command name and an argument node for each command.
+  const packet = new PacketWriter(PlayOut.Commands).writeVarInt(1 + names.length * 2);
+  packet.writeUnsignedByte(NODE_ROOT).writeVarIntArray(names.map((_, i) => 1 + i * 2));
+  names.forEach((name, i) => {
+    const literal = 1 + i * 2;
+    packet
+      .writeUnsignedByte(NODE_LITERAL | HAS_EXECUTABLE)
+      .writeVarIntArray([literal + 1])
+      .writeString(name);
+    packet
+      .writeUnsignedByte(NODE_ARGUMENT | HAS_EXECUTABLE)
+      .writeVarIntArray([])
+      .writeString("args")
+      .writeVarInt(5) // parser 5: a string
+      .writeVarInt(2); // 2: the rest of the line, spaces included
+  });
+  return packet.writeVarInt(0); // the root is node 0
+}
+
 export function playDisconnect(reason: ChatComponent): PacketWriter {
-  return new PacketWriter(PlayOut.Disconnect).writeChat(reason);
+  return new PacketWriter(PlayOut.Disconnect).writeTextComponent(reason);
 }

@@ -16,7 +16,7 @@ export function createWorld(): World {
   const generator = pickGenerator();
   // Edits only make sense for the terrain they were made on, so each
   // generator + seed combination gets its own folder.
-  const folder = path.resolve("world", `${generator.name}-${config.seed}`);
+  const folder = path.resolve("world", "1.21.11", `${generator.name}-${config.seed}`);
   logger.info(`World saves: ${folder}`);
   return new World(generator, new WorldStorage(folder));
 }

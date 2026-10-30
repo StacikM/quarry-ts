@@ -1,4 +1,4 @@
-import { Block } from "../blocks";
+import { Block, TREE_LEAVES } from "../blocks";
 import type { Chunk } from "../Chunk";
 import { Biome } from "./biomes";
 import { hash2 } from "./random";
@@ -11,12 +11,12 @@ export interface TreeTerrain {
 /** Replay roots up to the canopy radius outside this chunk, then clip writes. */
 export function placeTrees(chunk: Chunk, seed: number, terrain: TreeTerrain): void {
   const originX = chunk.x * 16, originZ = chunk.z * 16;
-  const write = (wx: number, y: number, wz: number, id: number, metadata = 0): void => {
+  const write = (wx: number, y: number, wz: number, id: number): void => {
     const x = wx - originX, z = wz - originZ;
     if (x < 0 || x >= 16 || z < 0 || z >= 16 || y > 255) return;
-    const previous = chunk.getBlockId(x, y, z);
-    if (previous === Block.Air || previous === Block.Leaves || (previous === Block.Snow && id === Block.Log)) {
-      chunk.setBlock(x, y, z, id, metadata);
+    const previous = chunk.getState(x, y, z);
+    if (previous === Block.Air || TREE_LEAVES.has(previous) || (previous === Block.Snow && !TREE_LEAVES.has(id))) {
+      chunk.setBlock(x, y, z, id);
     }
   };
   for (let z = originZ - 2; z <= originZ + 17; z++) {
@@ -31,15 +31,17 @@ export function placeTrees(chunk: Chunk, seed: number, terrain: TreeTerrain): vo
       const ground = terrain.heightAt(x, z);
       if (ground <= 63) continue;
       if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => Math.abs(terrain.heightAt(x + dx, z + dz) - ground) > 1)) continue;
-      const metadata = spruce ? 1 : biome === Biome.Forest && (hash >>> 16) % 5 === 0 ? 2 : 0;
-      const top = ground + (spruce ? 6 : metadata === 2 ? 5 : 4) + ((hash >>> 8) % 3);
-      for (let y = ground + 1; y <= top; y++) write(x, y, z, Block.Log, metadata);
+      const birch = !spruce && biome === Biome.Forest && (hash >>> 16) % 5 === 0;
+      const log = spruce ? Block.SpruceLog : birch ? Block.BirchLog : Block.Log;
+      const leaves = spruce ? Block.SpruceLeaves : birch ? Block.BirchLeaves : Block.Leaves;
+      const top = ground + (spruce ? 6 : birch ? 5 : 4) + ((hash >>> 8) % 3);
+      for (let y = ground + 1; y <= top; y++) write(x, y, z, log);
       if (spruce) {
         for (let y = top - 5; y <= top + 1; y++) {
           const radius = Math.min(2, Math.floor((top + 2 - y) / 2));
           for (let dz = -radius; dz <= radius; dz++) for (let dx = -radius; dx <= radius; dx++) {
             if (radius === 2 && Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
-            write(x + dx, y, z + dz, Block.Leaves, 1);
+            write(x + dx, y, z + dz, leaves);
           }
         }
         continue;
@@ -48,7 +50,7 @@ export function placeTrees(chunk: Chunk, seed: number, terrain: TreeTerrain): vo
         const radius = y >= top ? 1 : 2;
         for (let dz = -radius; dz <= radius; dz++) for (let dx = -radius; dx <= radius; dx++) {
           if (Math.abs(dx) === radius && Math.abs(dz) === radius && (y === top + 1 || ((hash >>> ((dx + dz + 8) & 15)) & 1))) continue;
-          write(x + dx, y, z + dz, Block.Leaves, metadata);
+          write(x + dx, y, z + dz, leaves);
         }
       }
     }

@@ -27,7 +27,7 @@ export function placeOres(chunk: Chunk, seed: number): void {
           for (let i = 0; i < ore.size; i++) {
             const x = wx - originX, z = wz - originZ;
             if (x >= 0 && x < 16 && z >= 0 && z < 16 && y >= 5 && y <= ore.max
-              && chunk.getBlockId(x, y, z) === Block.Stone) chunk.setBlock(x, y, z, ore.id);
+              && chunk.getState(x, y, z) === Block.Stone) chunk.setBlock(x, y, z, ore.id);
             const axis = Math.floor(random() * 3), step = random() < 0.5 ? -1 : 1;
             // Bound each vein to two blocks beyond its anchor cell.
             if (axis === 0) wx = Math.max(rootX - 2, Math.min(rootX + 2, wx + step));

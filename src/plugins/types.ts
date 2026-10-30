@@ -38,8 +38,8 @@ export interface ServerEvents {
   playerChat: { player: Player; message: string; format: string; cancelled: boolean };
   playerCommand: { player: Player; command: string; args: string[]; cancelled: boolean };
   playerMove: { player: Player; from: { x: number; y: number; z: number } };
-  blockBreak: { player: Player; position: BlockPosition; blockId: number; cancelled: boolean };
-  blockPlace: { player: Player; position: BlockPosition; blockId: number; metadata: number; cancelled: boolean };
+  blockBreak: { player: Player; position: BlockPosition; state: number; cancelled: boolean };
+  blockPlace: { player: Player; position: BlockPosition; state: number; cancelled: boolean };
 }
 
 export type EventName = keyof ServerEvents;

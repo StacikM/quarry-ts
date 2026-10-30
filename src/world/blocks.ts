@@ -1,37 +1,22 @@
-/**
- * A few block IDs from 1.8. A block is an ID plus 4 bits of "metadata"
- * (for example wool is ID 35, and the metadata picks the colour).
- *
- * Anything 0-255 is a block; 256 and up are items (swords, food, ...)
- * that can't be placed.
- */
+import { stateOf, STATE_COUNT } from './blockStates';
+
+/** Modern Java 1.21.11 STATE ids, not block registry ids or legacy id/meta pairs. */
 export const Block = {
-  Air: 0,
-  Stone: 1,
-  Grass: 2,
-  Dirt: 3,
-  Bedrock: 7,
-  Water: 9,
-  Lava: 11,
-  Sand: 12,
-  Gravel: 13,
-  GoldOre: 14,
-  IronOre: 15,
-  CoalOre: 16,
-  Log: 17,
-  Leaves: 18,
-  LapisOre: 21,
-  DiamondOre: 56,
-  RedstoneOre: 73,
-  Snow: 78,
-  TallGrass: 31,
-  DeadBush: 32,
-  Dandelion: 37,
-  Poppy: 38,
-  Cactus: 81,
-  SugarCane: 83,
+  Air: stateOf('air'), Stone: stateOf('stone'), Grass: stateOf('grass_block'),
+  Dirt: stateOf('dirt'), Bedrock: stateOf('bedrock'), Water: stateOf('water'), Lava: stateOf('lava'),
+  Sand: stateOf('sand'), Gravel: stateOf('gravel'),
+  GoldOre: stateOf('gold_ore'), IronOre: stateOf('iron_ore'), CoalOre: stateOf('coal_ore'),
+  Log: stateOf('oak_log', {axis:'y'}), Leaves: stateOf('oak_leaves', {persistent:true, distance:1}),
+  SpruceLog: stateOf('spruce_log', {axis:'y'}), SpruceLeaves: stateOf('spruce_leaves', {persistent:true, distance:1}),
+  BirchLog: stateOf('birch_log', {axis:'y'}), BirchLeaves: stateOf('birch_leaves', {persistent:true, distance:1}),
+  LapisOre: stateOf('lapis_ore'), DiamondOre: stateOf('diamond_ore'), RedstoneOre: stateOf('redstone_ore'),
+  Snow: stateOf('snow', {layers:1}), TallGrass: stateOf('short_grass'),
+  DeadBush: stateOf('dead_bush'), Dandelion: stateOf('dandelion'), Poppy: stateOf('poppy'),
+  Cactus: stateOf('cactus'), SugarCane: stateOf('sugar_cane'),
 } as const;
 
-export const MAX_BLOCK_ID = 255;
-
-// How blocks affect light (opacity, glow) lives in lightData.ts.
+/** Maximum valid state, retained under the old public constant name. */
+export const MAX_BLOCK_ID = STATE_COUNT - 1;
+export const TREE_LOGS: ReadonlySet<number> = new Set([Block.Log, Block.SpruceLog, Block.BirchLog]);
+export const TREE_LEAVES: ReadonlySet<number> = new Set([Block.Leaves, Block.SpruceLeaves, Block.BirchLeaves]);
+// State-indexed light opacity/emission lives in lightData.ts.

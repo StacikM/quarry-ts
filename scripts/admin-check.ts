@@ -33,6 +33,10 @@ async function main(): Promise<void> {
   const { runCommand } = await import("../src/game/commands");
   const { runConsoleCommand } = await import("../src/consoleCommands");
   const { handleLogin } = await import("../src/protocol/handlers/login");
+  const { handleConfiguration } = await import("../src/protocol/handlers/configuration");
+  const { LoginIn, ConfigIn, PlayOut } = await import("../src/protocol/packetIds");
+  const { chatText, readerFor, NO_UUID } = await import("./support/fakeClient");
+  const { VERSION_NAME } = await import("../src/config");
   const { PacketReader } = await import("../src/network/PacketReader");
   const { PacketWriter } = await import("../src/network/PacketWriter");
   const { ConnectionState } = await import("../src/network/ConnectionState");
@@ -183,13 +187,16 @@ async function main(): Promise<void> {
   type Conn = {
     player: { username: string; gameMode: number; sendMessage(t: string, c?: string): void } | null;
     address: string;
-    socket: { remoteAddress: string };
+    clientIp: string;
     protocolVersion: number;
+    pending: unknown;
+    compressionThreshold: number;
+    velocityMessageId: number | null;
     state: number;
     server: typeof server;
     said: string[];
     kicked: string[];
-    send(packet: { packetId: number; toBuffer(): Buffer }): void;
+    send(packet: { packetId: number; body(): Buffer }): void;
     disconnect(reason: string): void;
   };
 
@@ -198,22 +205,18 @@ async function main(): Promise<void> {
     const connection: Conn = {
       player: null,
       address: ip + ":50000",
-      socket: { remoteAddress: ip },
-      protocolVersion: 47,
+      clientIp: normalizeIp(ip),
+      protocolVersion: 774,
+      pending: null,
+      compressionThreshold: -1,
+      velocityMessageId: null,
       state: ConnectionState.Login,
       server,
       said: [],
       kicked: [],
       send(packet) {
-        if (packet.packetId === 2) {
-          const raw = packet.toBuffer().toString("utf8");
-          const json = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
-          try {
-            connection.said.push(JSON.parse(json).text);
-          } catch {
-            /* the Login Success packet also has id 2; it is not chat */
-          }
-        }
+        const text = chatText(packet);
+        if (text !== null && packet.packetId === PlayOut.SystemChat) connection.said.push(text);
       },
       disconnect(reason) {
         connection.kicked.push(reason);
@@ -225,9 +228,14 @@ async function main(): Promise<void> {
   /** Logs in through the real login handler, exactly as a client would. */
   function login(name: string, ip: string): Conn {
     const connection = fakeConnection(ip);
-    const writer = new PacketWriter(0).writeString(name);
-    const reader = new PacketReader(writer.toBuffer().subarray(2));
-    quiet(() => handleLogin(connection as never, 0, reader));
+    quiet(() => {
+      handleLogin(connection as never, LoginIn.LoginStart, readerFor(new PacketWriter(0).writeString(name).writeUUID(NO_UUID)));
+      if (!connection.pending) return; // turned away
+      handleLogin(connection as never, LoginIn.LoginAcknowledged, readerFor(new PacketWriter(0)));
+      const packs = new PacketWriter(0).writeVarInt(1).writeString("minecraft").writeString("core").writeString(VERSION_NAME);
+      handleConfiguration(connection as never, ConfigIn.KnownPacks, readerFor(packs));
+      handleConfiguration(connection as never, ConfigIn.FinishConfiguration, readerFor(new PacketWriter(0)));
+    });
     connection.said.length = 0; // forget the welcome messages
     return connection;
   }

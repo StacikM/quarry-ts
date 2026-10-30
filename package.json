@@ -1,7 +1,7 @@
 {
   "name": "quarry-ts",
   "version": "1.0.0",
-  "description": "Quarry.ts: a readable Minecraft 1.8.9 server written in TypeScript",
+  "description": "Quarry.ts: a readable Minecraft 1.21.11 server written in TypeScript",
   "author": "Stacik",
   "main": "dist/index.js",
   "scripts": {
@@ -10,14 +10,17 @@
     "play": "tsc && node dist/index.js",
     "dev": "tsx src/index.ts",
     "setup-git": "git config core.hooksPath .githooks",
-    "check": "tsc --noEmit && tsx scripts/core-check.ts && tsx scripts/terrain-check.ts && tsx scripts/plugins-check.ts && tsx scripts/plugin-docs-check.ts && tsx scripts/light-data-check.ts && tsx scripts/lighting-check.ts && tsx scripts/doors-check.ts && tsx scripts/protocol-check.ts && tsx scripts/admin-check.ts && tsx scripts/streaming-check.ts"
+    "check": "tsc --noEmit && tsx scripts/blockstates-check.ts && tsx scripts/blockshapes-check.ts && tsx scripts/core-check.ts && tsx scripts/terrain-check.ts && tsx scripts/plugins-check.ts && tsx scripts/plugin-docs-check.ts && tsx scripts/light-data-check.ts && tsx scripts/lighting-check.ts && tsx scripts/doors-check.ts && tsx scripts/protocol-check.ts && tsx scripts/admin-check.ts && tsx scripts/streaming-check.ts && tsx scripts/chunk-format-check.ts && tsx scripts/join-check.ts"
   },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^24.0.0",
     "minecraft-data": "3.109.0",
     "minecraft-protocol": "1.68.0",
+    "prismarine-chunk": "^1.41.0",
+    "prismarine-registry": "^1.12.0",
     "tsx": "^4.20.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "vec3": "^0.2.0"
   }
 }

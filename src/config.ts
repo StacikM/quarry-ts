@@ -17,11 +17,38 @@ function loadOperators(): string[] {
 }
 
 /**
+ * Settings for running behind a Velocity proxy, read from velocity.json:
+ *   { "enabled": true, "secret": "the same text as in Velocity's forwarding.secret" }
+ * The file is kept out of git because it holds a password. You can also set the
+ * environment variable QUARRY_VELOCITY_SECRET instead (that turns it on too).
+ * With no file and no variable, players connect to the server directly.
+ */
+function loadVelocity(): { enabled: boolean; secret: string } {
+  const fromEnv = process.env.QUARRY_VELOCITY_SECRET?.trim();
+  if (fromEnv) return { enabled: true, secret: fromEnv };
+  try {
+    const data: unknown = JSON.parse(fs.readFileSync(path.resolve("velocity.json"), "utf8"));
+    const { enabled, secret } = (data ?? {}) as { enabled?: unknown; secret?: unknown };
+    if (enabled === true && typeof secret === "string" && secret.trim().length > 0) {
+      return { enabled: true, secret: secret.trim() };
+    }
+    if (enabled === true) throw new Error("velocity.json says enabled but has no secret");
+  } catch (err) {
+    // A missing file is normal. A broken one must not silently switch protection off.
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw new Error(`Cannot use velocity.json: ${(err as Error).message}`);
+    }
+  }
+  return { enabled: false, secret: "" };
+}
+
+/**
  * All the knobs you might want to turn live here.
  */
 export const config = {
   host: "0.0.0.0",
-  port: 25565,
+  /** The port to listen on. Set the environment variable QUARRY_PORT to use another one. */
+  port: Number(process.env.QUARRY_PORT) || 25565,
 
   /** Text shown under the server name in the multiplayer list. */
   motd: "A Minecraft server written in TypeScript",
@@ -47,6 +74,18 @@ export const config = {
 
   defaultGameMode: GameMode.Creative,
 
+  /** The time of day shown to players, in ticks: 0 sunrise, 6000 noon, 12000 sunset, 18000 midnight. The clock does not move. */
+  timeOfDay: 6000,
+
+  /** Behind a Velocity proxy? See loadVelocity() above. When on, direct connections are refused. */
+  velocity: loadVelocity(),
+
+  /**
+   * Packets of at least this many bytes are compressed before they are sent
+   * (-1 turns compression off). Chunks shrink to a small fraction of their size.
+   */
+  compressionThreshold: 256,
+
   /** Operators (case-insensitive) can run commands marked opOnly. Edit ops.json, not this file. */
   ops: loadOperators(),
 
@@ -71,6 +110,6 @@ export const config = {
   keepAliveTimeoutMs: 30_000,
 };
 
-/** 1.8 through 1.8.9 all use protocol version 47. */
-export const PROTOCOL_VERSION = 47;
-export const VERSION_NAME = "1.8.9";
+/** Minecraft 1.21.11 is protocol version 774. */
+export const PROTOCOL_VERSION = 774;
+export const VERSION_NAME = "1.21.11";

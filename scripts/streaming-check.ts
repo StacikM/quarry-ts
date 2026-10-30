@@ -20,14 +20,15 @@ async function main(): Promise<void> {
   const { config } = await import("../src/config");
   const { decodeVarInt } = await import("../src/network/VarInt");
   const { PlayOut } = await import("../src/protocol/packetIds");
+  const { pendingLogin } = await import("./support/fakeClient");
 
   type Event = { kind: "chunk" | "unload" | "position"; x?: number; z?: number };
   type Fake = {
     player: any;
     address: string;
-    socket: { remoteAddress: string };
+    clientIp: string;
     events: Event[];
-    send(packet: { packetId: number; toBuffer(): Buffer }): void;
+    send(packet: { packetId: number; body(): Buffer }): void;
     disconnect(reason: string): void;
   };
 
@@ -47,20 +48,18 @@ async function main(): Promise<void> {
     const fake: Fake = {
       player: null,
       address: "test",
-      socket: { remoteAddress: "10.0.0." + uuidEnd },
+      clientIp: "10.0.0." + uuidEnd,
       events: [],
       send(packet) {
-        if (packet.packetId === PlayOut.PlayerPositionAndLook) fake.events.push({ kind: "position" });
-        if (packet.packetId !== PlayOut.ChunkData) return;
-        const bytes = packet.toBuffer();
-        const length = decodeVarInt(bytes, 0)!;
-        const body = bytes.subarray(length.size + 1); // skip the length and the packet id (0x21 fits in one byte)
-        const dataLength = decodeVarInt(body, 4 + 4 + 1 + 2)!.value; // x, z, full chunk flag, section mask, then the data size
-        fake.events.push({ kind: dataLength === 0 ? "unload" : "chunk", x: body.readInt32BE(0), z: body.readInt32BE(4) });
+        if (packet.packetId === PlayOut.PlayerPosition) fake.events.push({ kind: "position" });
+        const body = packet.body().subarray(1); // skip the packet id (all ids used here fit in one byte)
+        if (packet.packetId === PlayOut.ChunkDataAndLight) fake.events.push({ kind: "chunk", x: body.readInt32BE(0), z: body.readInt32BE(4) });
+        // (an Unload Chunk packet lists z first, then x)
+        if (packet.packetId === PlayOut.UnloadChunk) fake.events.push({ kind: "unload", x: body.readInt32BE(4), z: body.readInt32BE(0) });
       },
       disconnect() {},
     };
-    quiet(() => server.addPlayer(fake as never, name, "00000000-0000-0000-0000-00000000000" + uuidEnd));
+    quiet(() => server.addPlayer(fake as never, pendingLogin(name, "00000000-0000-0000-0000-00000000000" + uuidEnd)));
     return fake;
   }
 
@@ -87,8 +86,10 @@ async function main(): Promise<void> {
   // ------------------------------------------------------------------ joining
   const alice = join("Alice", "1");
   {
-    const beforePosition = alice.events.slice(0, alice.events.findIndex((e) => e.kind === "position"));
-    assert.strictEqual(chunksOf(beforePosition).length, urgentCount, "only the chunks right around the player are sent before the position");
+    const positionAt = alice.events.findIndex((e) => e.kind === "position");
+    assert.ok(positionAt >= 0, "the player was positioned");
+    assert.strictEqual(chunksOf(alice.events.slice(0, positionAt)).length, 0, "the position comes first, then the chunks");
+    assert.strictEqual(chunksOf(alice.events.slice(positionAt)).length, urgentCount, "only the chunks right around the player are sent at once");
     assert.strictEqual(chunksOf(alice.events).length, urgentCount, "and nothing more has been sent yet");
     assert.strictEqual(alice.player.pendingChunkCount, area - urgentCount, "the rest are waiting in the queue");
 
@@ -242,8 +243,8 @@ async function main(): Promise<void> {
   // ----------------------------------------------------------- spread-out autosave
   {
     const block = (i: number) => ({ x: 100_000 + i * 16 + 3, y: 90, z: 100_000 + 3 }); // one block in each of many chunks
-    const dirtyFiles = (): number => fs.readdirSync(path.join(workDir, "world", fs.readdirSync(path.join(workDir, "world"))[0])).filter((n) => n.endsWith(".edits")).length;
-    const before = fs.existsSync(path.join(workDir, "world")) ? dirtyFiles() : 0;
+    const dirtyFiles = (): number => fs.readdirSync(path.join(workDir, "world", "1.21.11", fs.readdirSync(path.join(workDir, "world", "1.21.11"))[0])).filter((n) => n.endsWith(".edits")).length;
+    const before = fs.existsSync(path.join(workDir, "world", "1.21.11")) ? dirtyFiles() : 0;
 
     for (let i = 0; i < 30; i++) server.world.setBlock(block(i), 1);
     server.startAutosave();

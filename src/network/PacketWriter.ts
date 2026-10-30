@@ -1,4 +1,5 @@
 import { encodeVarInt } from "./VarInt";
+import { encodeNetworkNbt, type NbtValue } from "../protocol/nbt";
 import type { BlockPosition } from "../world/BlockPosition";
 
 /**
@@ -9,10 +10,14 @@ import type { BlockPosition } from "../world/BlockPosition";
  *
  * On the wire every packet looks like:
  *   [length: VarInt] [packet id: VarInt] [fields...]
- * where "length" counts the id and the fields. toBuffer() adds the length.
+ * where "length" counts the id and the fields. Connection.send() adds the length
+ * (and compresses big packets, see network/framing.ts); toBuffer() adds it
+ * without compression, which is handy in tests.
  */
 export class PacketWriter {
   private readonly parts: Buffer[] = [];
+  /** Filled by body(), so a packet sent to many players is joined together once. */
+  private bodyCache: Buffer | null = null;
 
   constructor(readonly packetId: number) {
     this.writeVarInt(packetId);
@@ -76,17 +81,30 @@ export class PacketWriter {
     return this.add(8, (b) => b.writeDoubleBE(value));
   }
 
+  /** Writes a count followed by that many VarInts. */
+  writeVarIntArray(values: readonly number[]): this {
+    this.writeVarInt(values.length);
+    for (const value of values) this.writeVarInt(value);
+    return this;
+  }
+
+  /** Writes a count followed by that many 64-bit numbers (used for bit sets and packed arrays). */
+  writeLongArray(values: readonly bigint[]): this {
+    this.writeVarInt(values.length);
+    return this.add(values.length * 8, (b) => values.forEach((value, i) => b.writeBigInt64BE(value, i * 8)));
+  }
+
   /** A UUID is sent as 16 raw bytes. */
   writeUUID(uuid: string): this {
     return this.writeBytes(Buffer.from(uuid.replace(/-/g, ""), "hex"));
   }
 
-  /** The reverse of PacketReader.readPosition(). */
+  /** The reverse of PacketReader.readPosition(): x in the top 26 bits, z in the middle 26, y in the bottom 12. */
   writePosition(pos: BlockPosition): this {
     const packed =
       ((BigInt(pos.x) & 0x3ffffffn) << 38n) |
-      ((BigInt(pos.y) & 0xfffn) << 26n) |
-      (BigInt(pos.z) & 0x3ffffffn);
+      ((BigInt(pos.z) & 0x3ffffffn) << 12n) |
+      (BigInt(pos.y) & 0xfffn);
     return this.add(8, (b) => b.writeBigUInt64BE(packed));
   }
 
@@ -96,22 +114,24 @@ export class PacketWriter {
     return this.writeUnsignedByte(((steps % 256) + 256) % 256);
   }
 
-  /**
-   * Entity positions in 1.8 are "fixed point": the block coordinate times 32,
-   * stored as an int. So x = 10.5 is sent as 336.
-   */
-  writeFixedPoint(value: number): this {
-    return this.writeInt(Math.floor(value * 32));
-  }
-
-  /** Chat text is sent as JSON, e.g. {"text":"hello","color":"yellow"} */
+  /** Login errors are the one place that still uses chat as JSON text, e.g. {"text":"hello","color":"yellow"} */
   writeChat(component: object): this {
     return this.writeString(JSON.stringify(component));
   }
 
+  /** Everywhere else chat text is NBT (see protocol/nbt.ts). */
+  writeTextComponent(component: object): this {
+    return this.writeBytes(encodeNetworkNbt(component as NbtValue));
+  }
+
+  /** The packet id and fields, without the length in front. */
+  body(): Buffer {
+    return (this.bodyCache ??= Buffer.concat(this.parts));
+  }
+
   /** The finished packet, ready to write to the socket. */
   toBuffer(): Buffer {
-    const body = Buffer.concat(this.parts);
+    const body = this.body();
     return Buffer.concat([encodeVarInt(body.length), body]);
   }
 }

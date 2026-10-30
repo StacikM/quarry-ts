@@ -35,6 +35,8 @@ async function main(): Promise<void> {
   const { WorldStorage, decodeEdits } = await import("../src/world/WorldStorage");
   const { createNaturalGenerator } = await import("../src/world/terrain");
   const { Block } = await import("../src/world/blocks");
+  const { stateOf } = await import("../src/world/blockStates");
+  const { chatText, pendingLogin } = await import("./support/fakeClient");
 
   // ------------------------------------------------------------ scheduler
   {
@@ -144,19 +146,19 @@ async function main(): Promise<void> {
     const at = (x: number, y: number, z: number) => ({ x, y, z });
 
     const w = makeWorld();
-    const generated = w.getBlockId(at(-37, 70, 123));
-    w.setBlock(at(-37, 70, 123), 35, 14); // red wool, negative x
+    const redWool = stateOf("red_wool");
+    const generated = w.getState(at(-37, 70, 123));
+    w.setBlock(at(-37, 70, 123), redWool); // negative x
     w.setBlock(at(5, 100, 5), Block.Stone);
     w.setBlock(at(5, 100, 5), Block.Air); // edited twice: the last one wins
     assert.deepStrictEqual(w.saveDirtyChunks(), { saved: 2, failed: 0 });
     assert.deepStrictEqual(w.saveDirtyChunks(), { saved: 0, failed: 0 }, "unchanged chunks must not be rewritten");
 
     const reloaded = makeWorld();
-    assert.strictEqual(reloaded.getBlockId(at(-37, 70, 123)), 35);
-    assert.strictEqual(reloaded.getBlockMetadata(at(-37, 70, 123)), 14);
-    assert.strictEqual(reloaded.getBlockId(at(5, 100, 5)), Block.Air);
+    assert.strictEqual(reloaded.getState(at(-37, 70, 123)), redWool);
+    assert.strictEqual(reloaded.getState(at(5, 100, 5)), Block.Air);
     assert.deepStrictEqual(reloaded.saveDirtyChunks(), { saved: 0, failed: 0 }, "loading edits must not mark the chunk as changed");
-    assert.notStrictEqual(generated, 35);
+    assert.notStrictEqual(generated, redWool);
 
     reloaded.setBlock(at(200, 70, 200), Block.Stone);
     reloaded.unloadChunksExcept(new Set());
@@ -164,7 +166,7 @@ async function main(): Promise<void> {
     assert.deepStrictEqual(reloaded.saveDirtyChunks(), { saved: 1, failed: 0 });
     reloaded.unloadChunksExcept(new Set());
     assert.strictEqual(reloaded.loadedChunkCount, 0);
-    assert.strictEqual(reloaded.getBlockId(at(200, 70, 200)), Block.Stone, "edit lost after unload and reload");
+    assert.strictEqual(reloaded.getState(at(200, 70, 200)), Block.Stone, "edit lost after unload and reload");
     console.log("ok saving, loading, unloading");
 
     // Damaged files must never crash the server or load as garbage.
@@ -184,7 +186,7 @@ async function main(): Promise<void> {
     for (const [name, bytes] of Object.entries(damaged)) {
       assert.throws(() => decodeEdits(bytes), undefined, `${name} was accepted`);
       fs.writeFileSync(file, bytes);
-      const id = quiet(() => makeWorld().getBlockId(at(-37, 70, 123)));
+      const id = quiet(() => makeWorld().getState(at(-37, 70, 123)));
       assert.strictEqual(id, generated, `${name}: should fall back to generated terrain`);
       assert.ok(fs.existsSync(`${file}.corrupt`), `${name}: bad file was not set aside`);
       fs.unlinkSync(`${file}.corrupt`);
@@ -194,7 +196,7 @@ async function main(): Promise<void> {
     // A crash in the middle of a save leaves a .tmp file; the old save must win.
     fs.writeFileSync(file, good);
     fs.writeFileSync(`${file}.tmp`, "half written garbage");
-    assert.strictEqual(makeWorld().getBlockId(at(-37, 70, 123)), 35);
+    assert.strictEqual(makeWorld().getState(at(-37, 70, 123)), stateOf("red_wool"));
     console.log("ok leftover temp file from a crash is ignored");
 
     // A failed disk write is reported (not thrown) and tried again later.
@@ -217,7 +219,7 @@ async function main(): Promise<void> {
     const makeWorld = () => new World(createNaturalGenerator(1337), new WorldStorage(dir));
 
     const original = makeWorld();
-    original.setBlock(at(40, 70, 40), 35, 3); // chunk 2,2
+    original.setBlock(at(40, 70, 40), stateOf("red_wool")); // chunk 2,2
     original.saveDirtyChunks();
     const file = path.join(dir, "2.2.edits");
     const goodBytes = fs.readFileSync(file);
@@ -237,7 +239,7 @@ async function main(): Promise<void> {
       assert.strictEqual(w.loadedChunkCount, 0, "a chunk that failed to load must not be cached");
       assert.deepStrictEqual(w.saveDirtyChunks(), { saved: 0, failed: 0 }); // nothing to overwrite the real save with
       failReads = false; // the disk recovers
-      assert.strictEqual(w.getBlockId(at(40, 70, 40)), 35, "edit must come back once the disk works again");
+      assert.strictEqual(w.getState(at(40, 70, 40)), stateOf("red_wool"), "edit must come back once the disk works again");
     } finally {
       (fs as { readFileSync: unknown }).readFileSync = realRead;
     }
@@ -248,13 +250,13 @@ async function main(): Promise<void> {
     assert.ok(bomb.length < 100_000, "fixture should be small on disk");
     assert.throws(() => decodeEdits(bomb), /larger than|too large|maxOutputLength/i);
     fs.writeFileSync(file, bomb);
-    const plainTerrain = new World(createNaturalGenerator(1337)).getBlockId(at(40, 70, 40)); // no saves involved
-    assert.strictEqual(quiet(() => makeWorld().getBlockId(at(40, 70, 40))), plainTerrain, "bad file: use generated terrain");
+    const plainTerrain = new World(createNaturalGenerator(1337)).getState(at(40, 70, 40)); // no saves involved
+    assert.strictEqual(quiet(() => makeWorld().getState(at(40, 70, 40))), plainTerrain, "bad file: use generated terrain");
     assert.ok(fs.existsSync(file + ".corrupt"), "the bomb should be set aside");
     fs.unlinkSync(file + ".corrupt");
     // A file bigger than any valid save is rejected from its size alone.
     fs.writeFileSync(file, Buffer.alloc(2_000_000, 1));
-    quiet(() => makeWorld().getBlockId(at(40, 70, 40)));
+    quiet(() => makeWorld().getState(at(40, 70, 40)));
     assert.ok(fs.existsSync(file + ".corrupt"), "an oversized file should be set aside");
     fs.unlinkSync(file + ".corrupt");
     console.log("ok decompression bombs and oversized files are refused");
@@ -286,7 +288,7 @@ async function main(): Promise<void> {
     // The server reports an unsaved world instead of pretending it worked (index.ts relies on this).
     const server = new MinecraftServer();
     server.world.setBlock(at(500, 70, 500), Block.Stone);
-    const saveFolder = path.join(workDir, "world", "natural-1337");
+    const saveFolder = path.join(workDir, "world", "1.21.11", "natural-1337");
     const parked = saveFolder + "-parked";
     fs.renameSync(saveFolder, parked);
     fs.writeFileSync(saveFolder, "a file where the folder should be"); // makes every write fail
@@ -312,12 +314,14 @@ async function main(): Promise<void> {
       const connection = {
         player: null as unknown,
         address: "test",
-        send: (packet: { packetId: number; toBuffer(): Buffer }) => {
-          if (packet.packetId === 2) said.push(packet.toBuffer().toString().replace(/.*"text":"([^"]*)".*/s, "$1"));
+        clientIp: "127.0.0.1",
+        send: (packet: { packetId: number; body(): Buffer }) => {
+          const text = chatText(packet);
+          if (text !== null) said.push(text);
         },
         disconnect: () => {},
       };
-      server.addPlayer(connection as never, name, "00000000-0000-0000-0000-00000000000" + uuidEnd);
+      server.addPlayer(connection as never, pendingLogin(name, "00000000-0000-0000-0000-00000000000" + uuidEnd));
       return { player: connection.player as { gameMode: number }, said };
     };
 

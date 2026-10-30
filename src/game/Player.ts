@@ -1,17 +1,20 @@
 import type { Connection } from "../network/Connection";
 import type { PacketWriter } from "../network/PacketWriter";
 import type { MinecraftServer } from "./Server";
-import type { GameMode } from "./GameMode";
+import { GameMode } from "./GameMode";
 import { config } from "../config";
-import { normalizeIp } from "../util/ip";
 import {
   changeGameMode,
-  chatMessage,
+  chunkBatchFinished,
+  chunkBatchStart,
   chunkData,
   entityHeadLook,
   entityTeleport,
+  playerAbilities,
   playerListUpdateGameMode,
-  playerPositionAndLook,
+  playerPosition,
+  setCenterChunk,
+  systemChat,
   unloadChunk,
 } from "../protocol/clientbound";
 
@@ -24,6 +27,17 @@ export class Player {
   yaw = 0; // left/right rotation in degrees
   pitch = 0; // up/down rotation in degrees
   onGround = true;
+
+  /** Whether the player is flying (creative and spectator only). The client tells us. */
+  flying = false;
+  /** Which slot of the hotbar is selected (0-8), and what is in the hotbar slots, as item ids (-1 = nothing). */
+  heldSlot = 0;
+  readonly hotbar: number[] = new Array(9).fill(-1);
+
+  /** Numbers the position updates we force on the client; it answers each with "Teleport Confirm". */
+  private teleportCounter = 0;
+  /** The last forced position the client has not confirmed yet. Until then its own position reports are stale and ignored. */
+  awaitingTeleport: number | null = null;
 
   /** Keep-alive bookkeeping, see MinecraftServer.sendKeepAlives(). */
   pendingKeepAliveId: number | null = null;
@@ -44,6 +58,8 @@ export class Player {
     readonly username: string,
     readonly uuid: string,
     public gameMode: GameMode,
+    /** How many chunks around the player are sent: the server's setting, or less if the player asked for less. */
+    readonly viewRadius: number,
   ) {}
 
   /** Lets a Player be used wherever a CommandSender is expected. */
@@ -55,7 +71,7 @@ export class Player {
 
   /** The client's IP address, without the "::ffff:" prefix some systems add to IPv4. */
   get ip(): string {
-    return normalizeIp(this.connection.socket.remoteAddress ?? "");
+    return this.connection.clientIp;
   }
 
   get isOp(): boolean {
@@ -72,7 +88,7 @@ export class Player {
   }
 
   sendMessage(text: string, color?: string): void {
-    this.send(chatMessage({ text, color }));
+    this.send(systemChat({ text, color }));
   }
 
   kick(reason: string): void {
@@ -90,8 +106,9 @@ export class Player {
     if (centerX === this.lastChunkX && centerZ === this.lastChunkZ) return;
     this.lastChunkX = centerX;
     this.lastChunkZ = centerZ;
+    this.send(setCenterChunk(centerX, centerZ)); // the client keeps the chunks around this one
 
-    const radius = config.viewDistance;
+    const radius = this.viewRadius;
     const wanted = new Set<string>();
     const alreadyQueued = new Set(this.pendingChunks.map((chunk) => `${chunk.x},${chunk.z}`));
     const missing: Array<{ x: number; z: number }> = [];
@@ -151,7 +168,10 @@ export class Player {
 
     const world = this.server.world;
     const chunk = world.getChunk(next.x, next.z);
+    // Each chunk travels inside a "batch", which the client uses to measure how fast it can take them.
+    this.send(chunkBatchStart());
     this.send(chunkData(chunk, world.getLight(chunk)));
+    this.send(chunkBatchFinished(1));
     this.loadedChunks.add(`${next.x},${next.z}`);
   }
 
@@ -161,14 +181,22 @@ export class Player {
     this.y = y;
     this.z = z;
     this.updateLoadedChunks(true); // the chunks around the destination are sent first, the rest stream in
-    this.send(playerPositionAndLook(x, y, z, this.yaw, this.pitch));
+    this.sendPosition();
     this.server.broadcast(entityTeleport(this), this);
     this.server.broadcast(entityHeadLook(this), this);
   }
 
+  /** Puts the client's player at our idea of where it is. */
+  sendPosition(): void {
+    this.awaitingTeleport = ++this.teleportCounter;
+    this.send(playerPosition(this.awaitingTeleport, this.x, this.y, this.z, this.yaw, this.pitch));
+  }
+
   setGameMode(gameMode: GameMode): void {
     this.gameMode = gameMode;
+    if (gameMode !== GameMode.Creative && gameMode !== GameMode.Spectator) this.flying = false;
     this.send(changeGameMode(gameMode));
+    this.send(playerAbilities(gameMode, this.flying));
     // The tab list also stores game modes (and the client uses it to
     // decide if *you* are in spectator mode), so update it for everyone.
     this.server.broadcast(playerListUpdateGameMode(this));

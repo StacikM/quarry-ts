@@ -13,17 +13,22 @@ import { config } from "../config";
 import { formatError, logger } from "../util/logger";
 import type { BlockPosition } from "../world/BlockPosition";
 import type { Chunk } from "../world/Chunk";
+import type { PendingLogin } from "../network/Connection";
 import {
   blockChange,
-  chatMessage,
+  commandTree,
   destroyEntities,
+  GameEvent,
+  gameEvent,
   joinGame,
   keepAlive,
+  playerAbilities,
   playerListAdd,
   playerListRemove,
-  playerPositionAndLook,
   spawnPlayer,
   spawnPosition,
+  systemChat,
+  timeUpdate,
 } from "../protocol/clientbound";
 
 /**
@@ -232,10 +237,10 @@ export class MinecraftServer {
    * commands. (world.setBlock alone changes the world but leaves the
    * players' screens out of date.) The change is saved with the world.
    */
-  setBlock(pos: BlockPosition, blockId: number, metadata = 0): void {
+  setBlock(pos: BlockPosition, state: number): void {
     if (pos.y < 0 || pos.y > 255) return;
-    this.world.setBlock(pos, blockId, metadata);
-    this.broadcast(blockChange(pos, blockId, metadata));
+    this.world.setBlock(pos, state);
+    this.broadcast(blockChange(pos, state));
   }
 
   /** Where new players appear. The height depends on the terrain, so it's looked up. */
@@ -262,32 +267,42 @@ export class MinecraftServer {
 
   broadcastMessage(text: string, color?: string): void {
     logger.info(`[chat] ${text}`);
-    this.broadcast(chatMessage({ text, color }));
+    this.broadcast(systemChat({ text, color }));
   }
 
   /**
-   * Called right after a successful login. The order of packets matters:
-   *   1. Join Game           - "you're in, here's your entity ID and game mode"
-   *   2. Spawn Position      - where the compass points
-   *   3. Chunk Data (many)   - the world around them
-   *   4. Position And Look   - puts them in the world; the loading screen closes
+   * Called when the client has finished configuring and is ready to enter the world.
+   * The order of packets matters:
+   *   1. Login               - "you're in, here's your entity ID, game mode and world"
+   *   2. Abilities, commands - what the player may do and which commands exist
+   *   3. Time, spawn, Position - the sky, the compass, and where the player stands
+   *   4. "Chunks are coming" - then the chunk list: the world around them
    *   5. Tab list + other players appearing
    */
-  addPlayer(conn: Connection, username: string, uuid: string): void {
-    const player = new Player(conn, this, this.nextEntityId++, username, uuid, config.defaultGameMode);
+  addPlayer(conn: Connection, pending: PendingLogin): void {
+    if (this.getPlayerByName(pending.username)) {
+      conn.disconnect("Someone with that name is already playing.");
+      return;
+    }
+    const viewRadius = Math.max(2, Math.min(config.viewDistance, pending.viewDistance ?? config.viewDistance));
+    const player = new Player(conn, this, this.nextEntityId++, pending.username, pending.uuid, config.defaultGameMode, viewRadius);
     const spawn = this.getSpawnPoint();
     player.x = spawn.x;
     player.y = spawn.y;
     player.z = spawn.z;
     conn.player = player;
     this.players.set(player.entityId, player);
-    logger.info(`${username} joined from ${conn.address} (uuid ${uuid})`);
+    logger.info(`${player.username} joined from ${conn.address} (uuid ${player.uuid})`);
 
     const { x, y, z } = spawn;
-    player.send(joinGame(player.entityId, player.gameMode, config.maxPlayers));
+    player.send(joinGame(player.entityId, player.gameMode, config.maxPlayers, viewRadius));
+    player.send(playerAbilities(player.gameMode));
+    player.send(commandTree(this.plugins.commands.all().map((command) => command.name)));
+    player.send(timeUpdate(0, config.timeOfDay, false)); // a frozen clock: it is always the same time of day
     player.send(spawnPosition({ x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) }));
+    player.sendPosition();
+    player.send(gameEvent(GameEvent.LevelChunksLoadStart, 0));
     player.updateLoadedChunks(true); // the nearest chunks now, the rest are streamed over the next ticks
-    player.send(playerPositionAndLook(x, y, z, player.yaw, player.pitch));
 
     // Tab list: the new player needs everyone (including themselves),
     // everyone else just needs the new player.
@@ -301,7 +316,7 @@ export class MinecraftServer {
       other.send(spawnPlayer(player));
     }
 
-    this.broadcastMessage(`${username} joined the game`, "yellow");
+    this.broadcastMessage(`${player.username} joined the game`, "yellow");
     this.plugins.events.emit("playerJoin", { player });
   }
 
