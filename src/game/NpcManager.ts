@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { MinecraftServer } from "./Server";
 import type { Player } from "./Player";
-import type { Npc, NpcApi, NpcDefinition, SkinData } from "../plugins/types";
+import type { Npc, NpcApi, NpcDefinition, NpcEquipment, SkinData } from "../plugins/types";
+import { itemId } from "../world/blockStates";
 import {
   ARMOR_STAND_ENTITY_TYPE,
   PLAYER_ENTITY_TYPE,
+  EQUIPMENT_SLOTS,
   destroyEntities,
+  entityEquipment,
   entityMetadata,
   entityPositionSync,
   headRotation,
@@ -78,6 +81,9 @@ class NpcEntity implements Npc {
   }
   setSkin(skin: SkinData | undefined): void {
     this.manager.setSkin(this, skin);
+  }
+  setEquipment(equipment: NpcEquipment | undefined): void {
+    this.manager.setEquipment(this, equipment);
   }
   remove(): void {
     this.manager.remove(this);
@@ -215,6 +221,12 @@ export class NpcManager {
     this.respawn(npc, () => {});
   }
 
+  setEquipment(npc: NpcEntity, equipment: NpcEquipment | undefined): void {
+    if (equipment !== undefined && !isEquipment(equipment)) return;
+    npc.definition = { ...npc.definition, equipment: equipment ? structuredClone(equipment) : undefined };
+    for (const viewer of this.server.getOnlinePlayers()) viewer.send(equipmentPacket(npc, true));
+  }
+
   remove(npc: NpcEntity): void {
     if (this.npcs.get(npc.definition.id) !== npc) return;
     this.hideFromAll(npc);
@@ -258,6 +270,7 @@ export class NpcManager {
       ]),
     );
     viewer.send(headRotation(npc.entityId, yaw));
+    if (npc.definition.equipment) viewer.send(equipmentPacket(npc, false));
 
     if (npc.nameEntityId !== null && npc.definition.name) {
       viewer.send(spawnEntity(npc.nameEntityId, npc.nameStandUuid, ARMOR_STAND_ENTITY_TYPE, x, y + NAME_HEIGHT, z, 0, 0));
@@ -277,6 +290,29 @@ export class NpcManager {
     viewer.send(entityPositionSync(npc.entityId, x, y, z, yaw, pitch));
     viewer.send(headRotation(npc.entityId, yaw));
   }
+}
+
+/** What the NPC holds and wears as a packet. With clearOthers, places that have nothing are sent as empty so that old items disappear. */
+function equipmentPacket(npc: NpcEntity, clearOthers: boolean): ReturnType<typeof entityEquipment> {
+  const entries: Array<{ slot: number; item: { itemId: number; dyedColor?: number } | null }> = [];
+  for (const [place, slot] of Object.entries(EQUIPMENT_SLOTS) as Array<[keyof NpcEquipment, number]>) {
+    const wanted = npc.definition.equipment?.[place];
+    const id = wanted ? itemId(wanted.item) : undefined;
+    if (wanted && id !== undefined) entries.push({ slot, item: { itemId: id, dyedColor: wanted.dyedColor } });
+    else if (clearOthers) entries.push({ slot, item: null });
+  }
+  return entityEquipment(npc.entityId, entries);
+}
+
+function isEquipment(equipment: NpcEquipment): boolean {
+  if (typeof equipment !== "object" || equipment === null) return false;
+  return Object.entries(equipment).every(([place, wanted]) => {
+    if (!(place in EQUIPMENT_SLOTS)) return false;
+    const entry = wanted as { item?: unknown; dyedColor?: unknown };
+    if (typeof entry?.item !== "string" || itemId(entry.item) === undefined) return false;
+    const color = entry.dyedColor;
+    return color === undefined || (typeof color === "number" && Number.isInteger(color) && color >= 0 && color <= 0xffffff);
+  });
 }
 
 /** The smallest difference between two angles in degrees, in -180..180. */
@@ -302,5 +338,6 @@ function validate(definition: NpcDefinition): string | null {
   }
   if (definition.name !== undefined && (typeof definition.name !== "string" || definition.name.length > 256)) return "the name must be text of at most 256 characters";
   if (definition.skin !== undefined && !isSkin(definition.skin)) return "the skin needs a value (and at most a 1024 character signature)";
+  if (definition.equipment !== undefined && !isEquipment(definition.equipment)) return "the equipment must name known items in mainHand, offHand, head, chest, legs or feet (dyedColor is a number up to 0xFFFFFF)";
   return null;
 }

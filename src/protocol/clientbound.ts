@@ -377,13 +377,35 @@ export function setHeldSlot(slot: number): PacketWriter {
   return new PacketWriter(PlayOut.SetHeldSlot).writeVarInt(slot);
 }
 
-/** An item stack: nothing (count 0) or an item id with a count and no extra data. */
-function writeItem(packet: PacketWriter, item: { itemId: number; count: number } | null): void {
+/** The number of the "dyed colour" item component in the 1.21.11 list (checked against minecraft-data in protocol-check). */
+export const DYED_COLOR_COMPONENT = 42;
+
+/** An item stack: nothing (count 0) or an item id with a count, and at most a dye colour as extra data. */
+function writeItem(packet: PacketWriter, item: { itemId: number; count: number; dyedColor?: number } | null): void {
   if (item === null || item.count <= 0 || item.itemId < 0) {
     packet.writeVarInt(0);
     return;
   }
-  packet.writeVarInt(item.count).writeVarInt(item.itemId).writeVarInt(0).writeVarInt(0); // no component changes
+  packet.writeVarInt(item.count).writeVarInt(item.itemId);
+  if (item.dyedColor === undefined) {
+    packet.writeVarInt(0).writeVarInt(0); // no component changes
+    return;
+  }
+  packet.writeVarInt(1).writeVarInt(0).writeVarInt(DYED_COLOR_COMPONENT).writeInt(item.dyedColor & 0xffffff);
+}
+
+/** The places an entity can wear or hold something, in the numbers of the equipment packet. */
+export const EQUIPMENT_SLOTS = { mainHand: 0, offHand: 1, feet: 2, legs: 3, chest: 4, head: 5 } as const;
+
+/** What an entity holds and wears. An item of null shows an empty place (use it to take something off). */
+export function entityEquipment(entityId: number, items: Array<{ slot: number; item: { itemId: number; dyedColor?: number } | null }>): PacketWriter {
+  const packet = new PacketWriter(PlayOut.SetEquipment).writeVarInt(entityId);
+  items.forEach((entry, index) => {
+    const more = index < items.length - 1;
+    packet.writeUnsignedByte(entry.slot | (more ? 0x80 : 0)); // the top bit says another entry follows
+    writeItem(packet, entry.item === null ? null : { itemId: entry.item.itemId, count: 1, dyedColor: entry.item.dyedColor });
+  });
+  return packet;
 }
 
 /** Sets one slot of the player's own inventory window (0 = crafting result... 36-44 = hotbar, 9-35 = main). */

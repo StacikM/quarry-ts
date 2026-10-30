@@ -90,7 +90,7 @@ checkIds("play", "toClient", ids.PlayOut, {
   PlayerInfoRemove: "player_remove", PlayerInfoUpdate: "player_info", PlayerPosition: "position", RemoveEntities: "entity_destroy",
   HeadRotation: "entity_head_rotation", SetCenterChunk: "update_view_position", SetDefaultSpawnPosition: "spawn_position", SetTime: "update_time",
   SystemChat: "system_chat", EntityPositionSync: "sync_entity_position", UnloadChunk: "unload_chunk",
-  ContainerContent: "window_items", ContainerSetSlot: "set_slot", SetEntityData: "entity_metadata", SetHeldSlot: "held_item_slot",
+  ContainerContent: "window_items", ContainerSetSlot: "set_slot", SetEquipment: "entity_equipment", SetEntityData: "entity_metadata", SetHeldSlot: "held_item_slot",
   SetPlayerInventory: "set_player_inventory", SetPlayerTeam: "teams", EntityStatus: "entity_status",
 });
 assert.equal(data.entitiesByName.player.id, out.PLAYER_ENTITY_TYPE, "the player entity type number");
@@ -284,6 +284,19 @@ const npcUuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
   assert.equal(slotPacket.item.itemCount, 1); assert.equal(slotPacket.item.itemId, itemId("diamond_sword"));
   assert.equal(decoded("play", out.setInventorySlot(40, null), "set_slot").item.itemCount, 0, "an empty slot");
   assert.equal(decoded("play", out.setHeldSlot(4), "held_item_slot").slot, 4);
+
+  assert.equal((data.protocol as any).types.SlotComponentType[1].mappings[out.DYED_COLOR_COMPONENT], "dyed_color", "the dyed colour component number");
+  const worn = decoded("play", out.entityEquipment(300, [
+    { slot: out.EQUIPMENT_SLOTS.mainHand, item: { itemId: itemId("diamond_sword")! } },
+    { slot: out.EQUIPMENT_SLOTS.head, item: { itemId: itemId("leather_helmet")!, dyedColor: 0x7380f5 } },
+    { slot: out.EQUIPMENT_SLOTS.feet, item: null },
+  ]), "entity_equipment");
+  assert.equal(worn.entityId, 300);
+  assert.deepEqual(worn.equipments.map((entry: any) => [entry.slot, entry.item.itemCount]), [[0, 1], [5, 1], [2, 0]]);
+  assert.equal(worn.equipments[0].item.itemId, itemId("diamond_sword"));
+  const helmet = worn.equipments[1].item;
+  assert.equal(helmet.itemId, itemId("leather_helmet"));
+  assert.deepEqual(helmet.components.map((component: any) => [component.type, component.data]), [["dyed_color", 0x7380f5]]);
 
   const pick = incoming("play", "pick_item_from_block", { position: { x: -3, y: 70, z: 12 }, includeData: true });
   assert.equal(pick.id, ids.PlayIn.PickItemFromBlock); assert.deepEqual(pick.reader.readPosition(), { x: -3, y: 70, z: 12 }); assert.equal(pick.reader.readBoolean(), true);

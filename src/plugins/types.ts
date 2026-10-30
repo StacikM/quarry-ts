@@ -31,6 +31,22 @@ export interface SkinData {
   signature?: string;
 }
 
+/** What an NPC wears or holds in one place: an item name (with or without "minecraft:"), and the colour of dyed leather armor. */
+export interface NpcItem {
+  item: string;
+  /** Leather armor colour as 0xRRGGBB. */
+  dyedColor?: number;
+}
+
+export interface NpcEquipment {
+  mainHand?: NpcItem;
+  offHand?: NpcItem;
+  head?: NpcItem;
+  chest?: NpcItem;
+  legs?: NpcItem;
+  feet?: NpcItem;
+}
+
 /**
  * A non-player character: a fake player standing in the world that everybody can see.
  * It is plain data, so plugins can save it (see PluginApi.loadData) and spawn it again after a restart.
@@ -46,6 +62,8 @@ export interface NpcDefinition {
   /** The text shown above its head ("§" colour codes work). Empty or missing: no name tag. */
   name?: string;
   skin?: SkinData;
+  /** What it holds and wears. Anything with an unknown item is refused when spawning. */
+  equipment?: NpcEquipment;
   /** Turn to face players who come close. */
   lookAtPlayers?: boolean;
   /** Size multiplier (1 = normal). */
@@ -62,6 +80,8 @@ export interface Npc {
   teleport(position: { x: number; y: number; z: number }, yaw?: number, pitch?: number): void;
   setName(name: string): void;
   setSkin(skin: SkinData | undefined): void;
+  /** Replaces everything it holds and wears. */
+  setEquipment(equipment: NpcEquipment | undefined): void;
   /** Takes it out of the world. */
   remove(): void;
 }

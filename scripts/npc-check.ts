@@ -193,6 +193,38 @@ async function main(): Promise<void> {
   assert.strictEqual(api.list().length, 0, "a plugin's NPCs go when it is disabled");
   console.log("ok removing NPCs cleans up the clients, and disabling a plugin removes its NPCs");
 
+  // ---------------------------------------------------------------- what an NPC wears
+  alice.sent.length = 0;
+  const knight = api.spawn({
+    id: "knight",
+    position: { x: 5, y: 70, z: 5 },
+    equipment: { mainHand: { item: "minecraft:diamond_sword" }, head: { item: "leather_helmet", dyedColor: 0x7380f5 } },
+  })!;
+  assert.ok(knight, "an NPC with known items spawns");
+  const spawnIds = ids(alice.sent);
+  assert.ok(spawnIds.indexOf(PlayOut.SetEquipment) > spawnIds.indexOf(PlayOut.SpawnEntity), "what it wears is sent after the NPC itself");
+  alice.sent.length = 0;
+  server.npcs.showAllTo(alice.player);
+  assert.ok(ids(alice.sent).includes(PlayOut.SetEquipment), "and again to everyone who sees it later");
+  for (const bad of [
+    { head: { item: "not_an_item" } },
+    { hat: { item: "stone" } },
+    { head: { item: "leather_helmet", dyedColor: -1 } },
+    { head: { item: "leather_helmet", dyedColor: 0x1000000 } },
+    { head: "stone" },
+  ]) {
+    assert.strictEqual(api.spawn({ id: "bad", position: { x: 0, y: 70, z: 0 }, equipment: bad as never }), null, `refused: ${JSON.stringify(bad)}`);
+  }
+  alice.sent.length = 0;
+  knight.setEquipment({ feet: { item: "iron_boots" } });
+  assert.deepStrictEqual(ids(alice.sent), [PlayOut.SetEquipment], "changing it is one packet (and the other places are emptied)");
+  assert.deepStrictEqual(knight.definition.equipment, { feet: { item: "iron_boots" } });
+  alice.sent.length = 0;
+  knight.setEquipment({ feet: { item: "not_an_item" } } as never);
+  assert.strictEqual(alice.sent.length, 0, "an unknown item changes nothing");
+  knight.remove();
+  console.log("ok NPCs can hold and wear items (with dyed leather), sent when shown and when changed, bad ones refused");
+
   // ---------------------------------------------------------------- pick block
   const spot: Pos = { x: 20, y: world.getSpawnHeight(20, 20), z: 20 };
   alice.player.x = 20.5; alice.player.y = spot.y; alice.player.z = 21.5;

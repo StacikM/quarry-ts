@@ -105,6 +105,7 @@ export const PlayOut = {
   RemoveEntities: 0x4b,
   HeadRotation: 0x51,
   SetEntityData: 0x61,
+  SetEquipment: 0x64,
   SetHeldSlot: 0x67,
   SetCenterChunk: 0x5c,
   SetPlayerInventory: 0x6a,
