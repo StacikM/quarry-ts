@@ -4,6 +4,7 @@ import type { MinecraftServer } from "./Server";
 import { GameMode } from "./GameMode";
 import { config } from "../config";
 import { HOTBAR_START, Inventory, type ItemStack } from "./Inventory";
+import { itemId } from "../world/blockStates";
 import {
   changeGameMode,
   clearTitles,
@@ -136,6 +137,17 @@ export class Player {
     const { leftover, changed } = this.inventory.add(itemId, count);
     for (const slot of changed) this.setInventorySlot(slot, this.inventory.get(slot));
     return leftover;
+  }
+
+  /**
+   * Gives items by name ("diamond_sword" or "minecraft:diamond_sword"). Returns how many did not fit, and
+   * throws for a name that is not an item, so a typo in a plugin shows up straight away.
+   */
+  give(item: string, count = 1): number {
+    const id = itemId(item.toLowerCase());
+    if (id === undefined) throw new Error(`Unknown item: ${item}`);
+    if (!Number.isInteger(count) || count < 1 || count > 2304) throw new Error("The count must be a whole number from 1 to 2304");
+    return this.giveItem(id, count);
   }
 
   /** Selects a hotbar slot (0-8) for the player, on the client too. */

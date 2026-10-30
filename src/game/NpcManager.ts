@@ -102,9 +102,17 @@ export class NpcManager {
   forOwner(owner: string): NpcApi {
     return {
       spawn: (definition) => this.spawn(owner, definition),
-      get: (id) => this.npcs.get(id),
-      list: () => [...this.npcs.values()],
+      get: (id) => this.get(id),
+      list: () => this.list(),
     };
+  }
+
+  get(id: string): Npc | undefined {
+    return this.npcs.get(id);
+  }
+
+  list(): Npc[] {
+    return [...this.npcs.values()];
   }
 
   removeOwned(owner: string): void {

@@ -326,6 +326,17 @@ async function main(): Promise<void> {
   assert.strictEqual(bob.player.inventory.get(36), null, "only operators can give");
   console.log("ok /give: stacks, top-ups, item limits, full inventories, mistakes and permission");
 
+  // player.give(), the by-name version plugins use
+  for (let slot = 9; slot <= 44; slot++) alice.player.setInventorySlot(slot, null, false);
+  assert.strictEqual(alice.player.give("minecraft:Diamond", 3), 0);
+  assert.deepStrictEqual(alice.player.inventory.get(36), { itemId: itemId("diamond"), count: 3 }, "names work with the prefix and in any case");
+  assert.throws(() => alice.player.give("not_an_item"), /Unknown item/);
+  assert.throws(() => alice.player.give("stone", 0), /count/);
+  assert.throws(() => alice.player.give("stone", 1.5), /count/);
+  assert.strictEqual(alice.player.give("stone", 2240), 0, "the 35 free slots of 64 fit exactly (one slot holds the diamonds)");
+  assert.strictEqual(alice.player.give("stone", 5), 5, "and what does not fit is returned");
+  console.log("ok player.give: by name, with errors for typos, returning what did not fit");
+
   // ---------------------------------------------------------------- operator level and the game mode switcher
   const statusOf = (sent: Packet[]): number[] => sent.filter((p) => p.packetId === PlayOut.EntityStatus).map((p) => {
     const reader = new PacketReader(p.body());

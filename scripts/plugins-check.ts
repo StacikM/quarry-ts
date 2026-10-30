@@ -42,7 +42,8 @@ const player = {
   teleport(x: number, y: number, z: number) { this.x = x; this.y = y; this.z = z; },
 };
 const asPlayer = player as unknown as Player;
-for (const plugin of builtinPlugins) plugin.onEnable(api(plugin.name));
+// The NPC plugin reads and writes a real file and needs a real server; scripts/npcs-plugin-check.ts tests it in a temporary folder.
+for (const plugin of builtinPlugins) if (plugin.name !== "npcs") plugin.onEnable(api(plugin.name));
 runCommand(asPlayer, "home");
 assert.match(messages.pop()!, /Set a home/);
 runCommand(asPlayer, "sethome");
