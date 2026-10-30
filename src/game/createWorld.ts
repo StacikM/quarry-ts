@@ -2,6 +2,8 @@ import path from "node:path";
 import { World } from "../world/World";
 import { WorldStorage } from "../world/WorldStorage";
 import { FlatGenerator } from "../world/FlatGenerator";
+import { VoidGenerator } from "../world/VoidGenerator";
+import { AnvilGenerator, readMapSpawn } from "../world/anvil/AnvilGenerator";
 import type { TerrainGenerator } from "../world/TerrainGenerator";
 import { config } from "../config";
 import { logger } from "../util/logger";
@@ -22,6 +24,22 @@ export function createWorld(): World {
 }
 
 function pickGenerator(): TerrainGenerator {
+  if (config.mapFolder) {
+    const folder = path.resolve(config.mapFolder);
+    // A map that cannot be opened stops the server: silently showing a different world would be worse.
+    const generator = new AnvilGenerator(folder);
+    logger.info(`World generator: the map in ${folder}`);
+    const spawn = config.useMapSpawn ? readMapSpawn(folder) : null;
+    if (spawn) {
+      config.spawn = { x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 };
+      logger.info(`Spawn point from the map: ${spawn.x}, ${spawn.y}, ${spawn.z}`);
+    }
+    return generator;
+  }
+  if (config.generator === "void") {
+    logger.info("World generator: void (a small platform at the spawn)");
+    return new VoidGenerator();
+  }
   if (config.generator === "natural") {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports

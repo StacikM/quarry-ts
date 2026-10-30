@@ -83,7 +83,7 @@ checkIds("play", "toServer", ids.PlayIn, {
 });
 checkIds("play", "toClient", ids.PlayOut, {
   SpawnEntity: "spawn_entity", Animation: "animation", BlockChangedAck: "acknowledge_player_digging", BlockUpdate: "block_change",
-  ChunkBatchFinished: "chunk_batch_finished", ChunkBatchStart: "chunk_batch_start", Commands: "declare_commands", Disconnect: "kick_disconnect",
+  ChunkBatchFinished: "chunk_batch_finished", ChunkBatchStart: "chunk_batch_start", PluginMessage: "custom_payload", Commands: "declare_commands", Disconnect: "kick_disconnect",
   GameEvent: "game_state_change", KeepAlive: "keep_alive", ChunkDataAndLight: "map_chunk", Login: "login", PlayerAbilities: "abilities",
   PlayerInfoRemove: "player_remove", PlayerInfoUpdate: "player_info", PlayerPosition: "position", RemoveEntities: "entity_destroy",
   HeadRotation: "entity_head_rotation", SetCenterChunk: "update_view_position", SetDefaultSpawnPosition: "spawn_position", SetTime: "update_time",

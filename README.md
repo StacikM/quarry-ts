@@ -36,6 +36,15 @@ In Minecraft 1.21.11: Multiplayer, then Add Server, then `localhost`. The server
 
 **Behind a Velocity proxy:** create a file `velocity.json` next to where you start the server, with `{ "enabled": true, "secret": "the text in Velocity's forwarding.secret" }` (or set the environment variable `QUARRY_VELOCITY_SECRET`), and set `player-info-forwarding-mode = "modern"` in Velocity's `velocity.toml`. The server then takes each player's name, UUID and real IP address from the proxy, checks the proxy's signature, and **refuses direct connections**. Keep the port closed to the internet, so that only the proxy can reach it. The file is ignored by git because it holds a password.
 
+## Using it as a lobby
+
+Everything here is in [src/config.ts](src/config.ts) (the map can also be set with the environment variable `QUARRY_MAP`).
+
+- **An existing world as the map.** Set `mapFolder` to the folder of a Minecraft 1.18-or-newer world (the one that contains `region/`, for example your Paper lobby) and the server shows it. It reads the `region` files and `level.dat` (for the spawn point) and never changes them; what players change is saved separately, in this server's own `world/` folder. Limits: only y 0 to 255 is loaded, and chests, signs, other block entities and entities such as armor stands are not (yet). Blocks this version does not know become air, and the server prints a warning.
+- **An empty world.** `generator: "void"` gives a small stone platform and nothing else, to build a lobby on from scratch.
+- **Protection.** `lobby: { protectWorld: true }` lets only operators build or break, and puts everyone else in adventure mode.
+- **Sending players to other servers.** Behind Velocity, a plugin can call `player.connectToServer("survival")` (the server name from `velocity.toml`).
+
 **Before you play:** type `op YourMinecraftName` in the server console (it saves the name to an `ops.json` file in the folder you start the server from, which you can also edit by hand, like `["YourName"]`). Operators can use `/gamemode` and `/tp` and can build inside the spawn protection area. The file is ignored by git, so your name is never committed. Everything else you may want to change is in [src/config.ts](src/config.ts): the seed, the port, the MOTD, view distance, and whether the world is `"natural"` or `"flat"`.
 
 ## Commands

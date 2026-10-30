@@ -172,6 +172,11 @@ export function systemChat(message: ChatComponent, overlay = false): PacketWrite
   return new PacketWriter(PlayOut.SystemChat).writeTextComponent(message).writeBoolean(overlay);
 }
 
+/** A message on a plugin channel. Proxies such as Velocity listen on some of these. */
+export function pluginMessage(channel: string, data: Buffer): PacketWriter {
+  return new PacketWriter(PlayOut.PluginMessage).writeString(channel).writeBytes(data);
+}
+
 /** Where the compass points. */
 export function spawnPosition(pos: BlockPosition): PacketWriter {
   return new PacketWriter(PlayOut.SetDefaultSpawnPosition)

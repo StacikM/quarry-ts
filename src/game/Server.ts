@@ -246,7 +246,7 @@ export class MinecraftServer {
   /** Where new players appear. The height depends on the terrain, so it's looked up. */
   getSpawnPoint(): { x: number; y: number; z: number } {
     const { x, z } = config.spawn;
-    return { x, y: this.world.getSpawnHeight(Math.floor(x), Math.floor(z)), z };
+    return { x, y: config.spawn.y ?? this.world.getSpawnHeight(Math.floor(x), Math.floor(z)), z };
   }
 
   getOnlinePlayers(): Player[] {

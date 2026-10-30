@@ -13,6 +13,7 @@ import {
   playerAbilities,
   playerListUpdateGameMode,
   playerPosition,
+  pluginMessage,
   setCenterChunk,
   systemChat,
   unloadChunk,
@@ -89,6 +90,18 @@ export class Player {
 
   sendMessage(text: string, color?: string): void {
     this.send(systemChat({ text, color }));
+  }
+
+  /**
+   * Asks the Velocity (or BungeeCord) proxy in front of this server to move the
+   * player to another of its servers, by the name it has in the proxy's config.
+   * Does nothing useful when there is no proxy: nobody answers the message.
+   */
+  connectToServer(serverName: string): void {
+    if (!/^[A-Za-z0-9_.-]{1,64}$/.test(serverName)) throw new Error(`Invalid server name: ${serverName}`);
+    // The proxy reads Java's DataOutput format: each string is a 2-byte length and then the text.
+    const text = (value: string): Buffer => Buffer.concat([Buffer.from([0, value.length]), Buffer.from(value, "ascii")]);
+    this.send(pluginMessage("bungeecord:main", Buffer.concat([text("Connect"), text(serverName)])));
   }
 
   kick(reason: string): void {

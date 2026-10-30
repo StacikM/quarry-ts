@@ -84,6 +84,7 @@ export const PlayOut = {
   BlockUpdate: 0x08,
   ChunkBatchFinished: 0x0b,
   ChunkBatchStart: 0x0c,
+  PluginMessage: 0x18,
   Commands: 0x10,
   Disconnect: 0x20,
   GameEvent: 0x26,

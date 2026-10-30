@@ -99,10 +99,28 @@ export const config = {
    * "flat" or "natural". If the natural terrain code is missing, the server
    * falls back to flat (see game/createWorld.ts).
    */
-  generator: "natural" as "flat" | "natural",
+  generator: "natural" as "flat" | "natural" | "void",
 
-  /** Where players appear. The height is looked up from the world at join time. */
-  spawn: { x: 0.5, z: 0.5 },
+  /**
+   * Lobby behaviour. With protectWorld on, only operators can build or break blocks
+   * and everybody else joins in adventure mode (see plugins/builtin/lobby.ts).
+   */
+  lobby: { protectWorld: false },
+
+  /**
+   * An existing Minecraft world to show as this server's map: the folder that holds its "region" folder
+   * (a 1.18 or newer world from vanilla, Paper...). Or set the environment variable QUARRY_MAP.
+   * Empty means: use the generator above. See world/anvil/AnvilGenerator.ts for what is loaded.
+   */
+  mapFolder: process.env.QUARRY_MAP ?? "",
+
+  /**
+   * Where players appear. Without a y, the height is looked up from the world at join time.
+   * With a map, the map's own spawn point (from its level.dat) is used instead, unless you set
+   * useMapSpawn to false.
+   */
+  spawn: { x: 0.5, z: 0.5 } as { x: number; y?: number; z: number },
+  useMapSpawn: true,
 
   /** We send a keep-alive this often... */
   keepAliveIntervalMs: 10_000,
