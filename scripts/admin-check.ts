@@ -197,6 +197,7 @@ async function main(): Promise<void> {
     said: string[];
     kicked: string[];
     send(packet: { packetId: number; body(): Buffer }): void;
+    sendFrame(bytes: Buffer): void;
     disconnect(reason: string): void;
   };
 
@@ -218,6 +219,7 @@ async function main(): Promise<void> {
         const text = chatText(packet);
         if (text !== null && packet.packetId === PlayOut.SystemChat) connection.said.push(text);
       },
+      sendFrame() {},
       disconnect(reason) {
         connection.kicked.push(reason);
       },

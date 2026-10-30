@@ -67,6 +67,7 @@ export class Chunk {
     this.dirty = true;
     this.heightMap = null;
     this.light = null;
+    this.cachedFrame = null;
   }
 
   getEdits(): ReadonlyMap<number, number> {
@@ -137,12 +138,20 @@ export class Chunk {
     return {
       blockBytes: this.blocks.byteLength,
       lightBytes: this.light ? this.light.sky.byteLength + this.light.block.byteLength : 0,
-      otherBytes: this.biomes.byteLength + (this.heightMap?.byteLength ?? 0) + this.edits.size * 40,
+      otherBytes: this.biomes.byteLength + (this.heightMap?.byteLength ?? 0) + (this.cachedFrame?.frame.byteLength ?? 0) + this.edits.size * 40,
     };
   }
+
+  /**
+   * The chunk as it goes on the wire (encoded and compressed), kept so that the next
+   * player who needs this chunk gets the same bytes without any more work. Cleared
+   * whenever a block or the light changes.
+   */
+  cachedFrame: { threshold: number; frame: Buffer } | null = null;
 
   /** Forget the stored light so it is recomputed next time it is needed. */
   invalidateLight(): void {
     this.light = null;
+    this.cachedFrame = null;
   }
 }

@@ -7,7 +7,6 @@ import {
   changeGameMode,
   chunkBatchFinished,
   chunkBatchStart,
-  chunkData,
   entityHeadLook,
   entityTeleport,
   playerAbilities,
@@ -183,7 +182,7 @@ export class Player {
     const chunk = world.getChunk(next.x, next.z);
     // Each chunk travels inside a "batch", which the client uses to measure how fast it can take them.
     this.send(chunkBatchStart());
-    this.send(chunkData(chunk, world.getLight(chunk)));
+    this.connection.sendFrame(this.server.getChunkFrame(chunk, this.connection.compressionThreshold));
     this.send(chunkBatchFinished(1));
     this.loadedChunks.add(`${next.x},${next.z}`);
   }

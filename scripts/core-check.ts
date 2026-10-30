@@ -319,6 +319,8 @@ async function main(): Promise<void> {
           const text = chatText(packet);
           if (text !== null) said.push(text);
         },
+        compressionThreshold: -1,
+        sendFrame: () => {},
         disconnect: () => {},
       };
       server.addPlayer(connection as never, pendingLogin(name, "00000000-0000-0000-0000-00000000000" + uuidEnd));

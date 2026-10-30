@@ -37,6 +37,8 @@ async function main(): Promise<void> {
     address: "test",
     clientIp: "127.0.0.1",
     send: (packet: InstanceType<typeof PacketWriter>) => sent.push(packet),
+    compressionThreshold: -1,
+    sendFrame: () => {},
     disconnect: () => {},
   };
 

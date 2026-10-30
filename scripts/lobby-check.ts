@@ -42,7 +42,7 @@ async function main(): Promise<void> {
   const server = new MinecraftServer();
   const join = (name: string, uuidEnd: string): { player: any; sent: Array<{ packetId: number; body(): Buffer }> } => {
     const sent: Array<{ packetId: number; body(): Buffer }> = [];
-    const connection = { player: null as unknown, address: "test", clientIp: "127.0.0.1", send: (packet: any) => sent.push(packet), disconnect: () => {} };
+    const connection = { player: null as unknown, address: "test", clientIp: "127.0.0.1", send: (packet: any) => sent.push(packet), compressionThreshold: -1, sendFrame: () => {}, disconnect: () => {} };
     server.addPlayer(connection as never, pendingLogin(name, "00000000-0000-0000-0000-00000000000" + uuidEnd));
     return { player: connection.player, sent };
   };

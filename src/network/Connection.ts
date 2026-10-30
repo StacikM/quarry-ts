@@ -135,9 +135,12 @@ export class Connection {
   }
 
   send(packet: PacketWriter): void {
-    if (!this.socket.destroyed) {
-      this.socket.write(frame(packet.body(), this.compressionThreshold));
-    }
+    this.sendFrame(frame(packet.body(), this.compressionThreshold));
+  }
+
+  /** Sends bytes that are already framed (and compressed) for this connection's compression setting. */
+  sendFrame(bytes: Buffer): void {
+    if (!this.socket.destroyed) this.socket.write(bytes);
   }
 
   /** Kicks the client, showing them `reason` if they're logging in or playing. */

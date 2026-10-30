@@ -1,5 +1,6 @@
 import net from "node:net";
 import { Connection } from "../network/Connection";
+import { frame } from "../network/framing";
 import type { PacketWriter } from "../network/PacketWriter";
 import { createWorld } from "./createWorld";
 import { PluginManager } from "../plugins/PluginManager";
@@ -16,6 +17,7 @@ import type { Chunk } from "../world/Chunk";
 import type { PendingLogin } from "../network/Connection";
 import {
   blockChange,
+  chunkData,
   commandTree,
   destroyEntities,
   GameEvent,
@@ -140,6 +142,19 @@ export class MinecraftServer {
       if (player.pendingChunkCount === 0) waiting.splice(waiting.indexOf(player), 1);
     }
     return attempted;
+  }
+
+  /**
+   * The bytes that send `chunk` to a player, ready to write to the socket. They are made once and
+   * kept until the chunk changes, so a crowd joining the same lobby costs one encoding and one
+   * compression per chunk, not one per player.
+   */
+  getChunkFrame(chunk: Chunk, compressionThreshold: number): Buffer {
+    if (chunk.cachedFrame?.threshold === compressionThreshold) return chunk.cachedFrame.frame;
+    const bytes = frame(chunkData(chunk, this.world.getLight(chunk)).body(), compressionThreshold);
+    chunk.cachedFrame = { threshold: compressionThreshold, frame: bytes };
+    chunk.light = null; // the light is only needed to make the packet; it is worked out again after a change
+    return bytes;
   }
 
   /** How many chunks are waiting to be sent to all players together. */

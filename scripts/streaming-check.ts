@@ -27,7 +27,9 @@ async function main(): Promise<void> {
     player: any;
     address: string;
     clientIp: string;
+    compressionThreshold: number;
     events: Event[];
+    sendFrame(bytes: Buffer): void;
     send(packet: { packetId: number; body(): Buffer }): void;
     disconnect(reason: string): void;
   };
@@ -49,13 +51,19 @@ async function main(): Promise<void> {
       player: null,
       address: "test",
       clientIp: "10.0.0." + uuidEnd,
+      compressionThreshold: -1,
       events: [],
       send(packet) {
         if (packet.packetId === PlayOut.PlayerPosition) fake.events.push({ kind: "position" });
         const body = packet.body().subarray(1); // skip the packet id (all ids used here fit in one byte)
-        if (packet.packetId === PlayOut.ChunkDataAndLight) fake.events.push({ kind: "chunk", x: body.readInt32BE(0), z: body.readInt32BE(4) });
         // (an Unload Chunk packet lists z first, then x)
         if (packet.packetId === PlayOut.UnloadChunk) fake.events.push({ kind: "unload", x: body.readInt32BE(4), z: body.readInt32BE(0) });
+      },
+      // chunks arrive as ready-made frames: [length][packet id][x][z]...
+      sendFrame(bytes) {
+        const length = decodeVarInt(bytes, 0)!;
+        const body = bytes.subarray(length.size);
+        if (body[0] === PlayOut.ChunkDataAndLight) fake.events.push({ kind: "chunk", x: body.readInt32BE(1), z: body.readInt32BE(5) });
       },
       disconnect() {},
     };
@@ -301,6 +309,26 @@ async function main(): Promise<void> {
     assert.ok(!(server as unknown as { autosave: unknown }).autosave, "ticks alone finish an autosave");
     assert.strictEqual(server.world.saveDirtyChunks().saved, 0);
     console.log("ok autosave: spread over ticks, always progresses, a failing chunk is skipped once, a manual save finishes it, ticks drive it");
+  }
+
+  // ----------------------------------------------------------- shared chunk packets
+  {
+    const chunk = quiet(() => server.world.getChunk(500, 500));
+    const first = quiet(() => server.getChunkFrame(chunk, 256));
+    assert.strictEqual(server.getChunkFrame(chunk, 256), first, "the second player gets the very same bytes, nothing is encoded again");
+    assert.notStrictEqual(server.getChunkFrame(chunk, -1), first, "another compression setting needs its own bytes");
+    const uncompressed = server.getChunkFrame(chunk, -1);
+    assert.ok(first.length < uncompressed.length / 2, "and compression makes a chunk much smaller");
+
+    server.world.setBlock({ x: 500 * 16 + 3, y: 200, z: 500 * 16 + 3 }, 1);
+    const afterEdit = server.getChunkFrame(chunk, 256);
+    assert.notStrictEqual(afterEdit, first, "a changed block makes a new packet");
+    server.world.setBlock({ x: 500 * 16, y: 201, z: 500 * 16 + 5 }, 1); // on the western border: the neighbour's light depends on it
+    const neighbour = quiet(() => server.world.getChunk(499, 500));
+    const neighbourFrame = server.getChunkFrame(neighbour, 256);
+    server.world.setBlock({ x: 500 * 16, y: 202, z: 500 * 16 + 5 }, 1);
+    assert.notStrictEqual(server.getChunkFrame(neighbour, 256), neighbourFrame, "an edit on a chunk border also renews the neighbour's packet");
+    console.log("ok chunk packets are made once and shared, and renewed after a change (also across a border)");
   }
 
   console.log("ALL STREAMING CHECKS PASS");
