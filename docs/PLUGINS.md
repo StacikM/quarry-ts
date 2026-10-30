@@ -190,6 +190,19 @@ module.exports = {
 };
 ```
 
+## Player titles and proxy transfers
+
+Player methods available to plugins:
+
+| Method | Behavior |
+| --- | --- |
+| `player.sendActionBar(text, color?)` | Show text above the hotbar. |
+| `player.sendTitle(title, subtitle?, options?)` | Show a title and optional subtitle. Options are `color`, `fadeIn`, `stay`, and `fadeOut`; durations are ticks (20 per second), defaulting to 10, 70, and 20. |
+| `player.clearTitle()` | Clear the current title. |
+| `player.connectToServer(serverName)` | Ask the connected Velocity/BungeeCord proxy to transfer the player to a configured backend name. Direct connections have no proxy to handle the request. Names must contain 1–64 letters, digits, `_`, `.`, or `-`. |
+
+`player.properties` holds profile properties, including forwarded skin data when supplied. A proxy transfer requires the proxy's plugin-message support as well as its backend configuration; this method does not open a direct connection from the client.
+
 ## Load order, cleanup and errors
 
 Core commands register first. Builtin plugins enable next, followed by `.js`/`.cjs` files from `plugins/`. There is no dependency or priority API; avoid relying on file enumeration order between external plugins. A file may export one plugin, an array, `exports.plugin`, or a default export. Restart to pick up file changes; there is no reload command.
