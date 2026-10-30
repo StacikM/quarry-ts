@@ -2,6 +2,7 @@ import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import type { Connection } from "../../network/Connection";
 import { ConnectionState } from "../../network/ConnectionState";
 import { PacketReader } from "../../network/PacketReader";
+import type { ProfileProperty } from "../../network/Connection";
 import { LoginIn } from "../packetIds";
 import {
   featureFlags,
@@ -63,7 +64,7 @@ function onLoginStart(conn: Connection, reader: PacketReader): void {
     return;
   }
 
-  finishLogin(conn, username, offlineUUID(username));
+  finishLogin(conn, username, offlineUUID(username), []);
 }
 
 /** The proxy's answer. Layout: 32 bytes HMAC-SHA256 signature, then the signed data. */
@@ -97,18 +98,34 @@ function onPluginResponse(conn: Connection, reader: PacketReader): void {
   const address = forwarded.readString();
   const uuid = forwarded.readUUID();
   const username = forwarded.readString();
-  // (skin properties and chat keys follow; not needed here)
+  const properties = readProperties(forwarded); // the skin
+  // (chat keys follow in newer forwarding versions; not needed here)
 
   if (!VALID_USERNAME.test(username)) {
     conn.disconnect("Invalid username.");
     return;
   }
   conn.clientIp = normalizeIp(address);
-  finishLogin(conn, username, uuid);
+  finishLogin(conn, username, uuid, properties);
+}
+
+/** Profile data as the proxy sends it. It is signed by Mojang, so we pass it on untouched. Bounded, because it comes from the network. */
+function readProperties(reader: PacketReader): ProfileProperty[] {
+  const count = reader.readVarInt();
+  if (count < 0 || count > 16) throw new Error("too many profile properties");
+  const properties: ProfileProperty[] = [];
+  for (let i = 0; i < count; i++) {
+    const name = reader.readString();
+    const value = reader.readString();
+    const signature = reader.readBoolean() ? reader.readString() : undefined;
+    if (name.length > 64 || value.length > 32767 || (signature?.length ?? 0) > 1024) throw new Error("profile property too long");
+    properties.push({ name, value, signature });
+  }
+  return properties;
 }
 
 /** The name is known and trusted now: apply the server's rules and let the player in. */
-function finishLogin(conn: Connection, username: string, uuid: string): void {
+function finishLogin(conn: Connection, username: string, uuid: string, properties: ProfileProperty[]): void {
   // Bans are checked before anything else about the server's state, so a banned player learns nothing more.
   const nameBan = conn.server.bans.findNameBan(username);
   const ipBan = conn.server.bans.findIpBan(conn.clientIp);
@@ -127,7 +144,7 @@ function finishLogin(conn: Connection, username: string, uuid: string): void {
     return;
   }
 
-  conn.pending = { username, uuid, ip: conn.clientIp, knownPacksAnswered: false, viewDistance: null };
+  conn.pending = { username, uuid, ip: conn.clientIp, knownPacksAnswered: false, viewDistance: null, properties };
 
   // The compression packet itself is sent uncompressed; everything after it follows the new rule.
   if (config.compressionThreshold >= 0) {

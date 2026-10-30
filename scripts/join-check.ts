@@ -199,10 +199,11 @@ async function main(): Promise<void> {
     {
       const secret = "proxy-secret";
       config.velocity = { enabled: true, secret };
-      const forwardingPayload = (name: string, uuid: string, ip: string, key = secret): Buffer => {
+      const forwardingPayload = (name: string, uuid: string, ip: string, key = secret, skin?: { value: string; signature: string }): Buffer => {
         const varInt = (value: number): Buffer => Buffer.from([value]);
         const text = (value: string): Buffer => Buffer.concat([varInt(Buffer.byteLength(value)), Buffer.from(value)]);
-        const signed = Buffer.concat([varInt(1), text(ip), Buffer.from(uuid.replace(/-/g, ""), "hex"), text(name), varInt(0)]);
+        const properties = skin ? [varInt(1), text("textures"), text(skin.value), Buffer.from([1]), text(skin.signature)] : [varInt(0)];
+        const signed = Buffer.concat([varInt(1), text(ip), Buffer.from(uuid.replace(/-/g, ""), "hex"), text(name), ...properties]);
         return Buffer.concat([createHmac("sha256", key).update(signed).digest(), signed]);
       };
       const viaProxy = (name: string, answer: (messageId: number) => Buffer | undefined): any => {
@@ -220,12 +221,25 @@ async function main(): Promise<void> {
       const good = viaProxy("Proxied", () => forwardingPayload("Proxied", uuid, "203.0.113.9"));
       let goodEnded = false;
       good.on("end", () => (goodEnded = true));
+      const listEntries: any[] = [];
+      good.on("player_info", (packet: any) => listEntries.push(...packet.data));
       good.on("error", () => {});
       await until(() => server.getOnlinePlayers().length === 1, "the proxied player to join");
       const player = server.getOnlinePlayers()[0];
       assert.strictEqual(player.username, "Proxied");
       assert.strictEqual(player.uuid, uuid, "the proxy's UUID is used");
       assert.strictEqual(player.ip, "203.0.113.9", "the player's real address, not the proxy's");
+
+      // A skin sent by the proxy is passed on to the other players, untouched.
+      const skin = { value: "dGV4dHVyZXM=", signature: "c2lnbmVk" };
+      const skinned = viaProxy("Skinned", () => forwardingPayload("Skinned", randomUUID(), "203.0.113.20", secret, skin));
+      skinned.on("error", () => {});
+      await until(() => listEntries.some((entry) => entry.player?.name === "Skinned"), "the other player to see the new player in the tab list");
+      const shown = listEntries.find((entry) => entry.player?.name === "Skinned");
+      assert.deepStrictEqual(shown.player.properties, [{ name: "textures", value: skin.value, signature: skin.signature }], "the skin reaches other players");
+      assert.deepStrictEqual(listEntries.find((entry) => entry.player?.name === "Proxied").player.properties, [], "and players without a skin have none");
+      skinned.end();
+      await until(() => server.getOnlinePlayers().length === 1, "the skinned player to leave");
 
       // Bans use the real address.
       quiet(() => server.bans.banIp("203.0.113.9", "test", "Console"));

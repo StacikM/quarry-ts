@@ -24,7 +24,7 @@ export function chatText(packet: SentPacket): string | null {
 
 /** The login data the server has once a client has logged in and finished configuring. */
 export function pendingLogin(username: string, uuid: string, ip = "127.0.0.1"): PendingLogin {
-  return { username, uuid, ip, knownPacksAnswered: true, viewDistance: null };
+  return { username, uuid, ip, knownPacksAnswered: true, viewDistance: null, properties: [] };
 }
 
 /** A reader positioned after the packet id, as the packet handlers expect it. */

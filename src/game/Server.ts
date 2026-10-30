@@ -305,6 +305,7 @@ export class MinecraftServer {
     player.x = spawn.x;
     player.y = spawn.y;
     player.z = spawn.z;
+    player.properties = pending.properties;
     conn.player = player;
     this.players.set(player.entityId, player);
     logger.info(`${player.username} joined from ${conn.address} (uuid ${player.uuid})`);

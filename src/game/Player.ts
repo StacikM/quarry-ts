@@ -1,10 +1,11 @@
-import type { Connection } from "../network/Connection";
+import type { Connection, ProfileProperty } from "../network/Connection";
 import type { PacketWriter } from "../network/PacketWriter";
 import type { MinecraftServer } from "./Server";
 import { GameMode } from "./GameMode";
 import { config } from "../config";
 import {
   changeGameMode,
+  clearTitles,
   chunkBatchFinished,
   chunkBatchStart,
   entityHeadLook,
@@ -15,6 +16,9 @@ import {
   pluginMessage,
   setCenterChunk,
   systemChat,
+  titleSubtitle,
+  titleText,
+  titleTimes,
   unloadChunk,
 } from "../protocol/clientbound";
 
@@ -27,6 +31,9 @@ export class Player {
   yaw = 0; // left/right rotation in degrees
   pitch = 0; // up/down rotation in degrees
   onGround = true;
+
+  /** Profile data (the skin) that a proxy sent along. Empty for players who connect directly. */
+  properties: ProfileProperty[] = [];
 
   /** Whether the player is flying (creative and spectator only). The client tells us. */
   flying = false;
@@ -89,6 +96,22 @@ export class Player {
 
   sendMessage(text: string, color?: string): void {
     this.send(systemChat({ text, color }));
+  }
+
+  /** Text above the hotbar. */
+  sendActionBar(text: string, color?: string): void {
+    this.send(systemChat({ text, color }, true));
+  }
+
+  /** Big text in the middle of the screen. The times are in ticks (20 a second). */
+  sendTitle(title: string, subtitle = "", options: { fadeIn?: number; stay?: number; fadeOut?: number; color?: string } = {}): void {
+    this.send(titleTimes(options.fadeIn ?? 10, options.stay ?? 70, options.fadeOut ?? 20));
+    this.send(titleSubtitle({ text: subtitle, color: options.color }));
+    this.send(titleText({ text: title, color: options.color }));
+  }
+
+  clearTitle(): void {
+    this.send(clearTitles());
   }
 
   /**

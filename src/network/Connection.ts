@@ -22,6 +22,13 @@ const MAX_PACKET_SIZE = 2 * 1024 * 1024;
 const LOGIN_TIMEOUT_MS = 30_000;
 
 /** What we know about a player between "Login Start" and the moment they enter the world. */
+/** A piece of profile data attached to a player; the one that matters is "textures", which holds the skin. */
+export interface ProfileProperty {
+  name: string;
+  value: string;
+  signature?: string;
+}
+
 export interface PendingLogin {
   username: string;
   uuid: string;
@@ -30,6 +37,8 @@ export interface PendingLogin {
   /** Set once the client has answered our Known Packs question. */
   knownPacksAnswered: boolean;
   viewDistance: number | null;
+  /** Profile data from a proxy (skins). Empty for players who connect directly. */
+  properties: ProfileProperty[];
 }
 
 /**

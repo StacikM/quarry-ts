@@ -172,6 +172,23 @@ export function systemChat(message: ChatComponent, overlay = false): PacketWrite
   return new PacketWriter(PlayOut.SystemChat).writeTextComponent(message).writeBoolean(overlay);
 }
 
+/** Big text in the middle of the screen. Send the times first, then the subtitle, then the title (which makes it appear). */
+export function titleTimes(fadeInTicks: number, stayTicks: number, fadeOutTicks: number): PacketWriter {
+  return new PacketWriter(PlayOut.SetTitleTimes).writeInt(fadeInTicks).writeInt(stayTicks).writeInt(fadeOutTicks);
+}
+
+export function titleSubtitle(subtitle: ChatComponent): PacketWriter {
+  return new PacketWriter(PlayOut.SetTitleSubtitle).writeTextComponent(subtitle);
+}
+
+export function titleText(title: ChatComponent): PacketWriter {
+  return new PacketWriter(PlayOut.SetTitleText).writeTextComponent(title);
+}
+
+export function clearTitles(): PacketWriter {
+  return new PacketWriter(PlayOut.ClearTitles).writeBoolean(true); // true also forgets the times
+}
+
 /** A message on a plugin channel. Proxies such as Velocity listen on some of these. */
 export function pluginMessage(channel: string, data: Buffer): PacketWriter {
   return new PacketWriter(PlayOut.PluginMessage).writeString(channel).writeBytes(data);
@@ -340,7 +357,12 @@ export function playerListAdd(players: Player[]): PacketWriter {
     packet
       .writeUUID(player.uuid)
       .writeString(player.username)
-      .writeVarInt(0) // properties (skins come from here; offline mode has none)
+      .writeVarInt(player.properties.length); // profile data: the skin comes from here (a proxy supplies it; offline mode has none)
+    for (const property of player.properties) {
+      packet.writeString(property.name).writeString(property.value).writeBoolean(property.signature !== undefined);
+      if (property.signature !== undefined) packet.writeString(property.signature);
+    }
+    packet
       .writeVarInt(player.gameMode)
       .writeBoolean(true) // shown in the tab list
       .writeVarInt(0); // ping in ms

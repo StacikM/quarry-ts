@@ -83,6 +83,7 @@ checkIds("play", "toServer", ids.PlayIn, {
 });
 checkIds("play", "toClient", ids.PlayOut, {
   SpawnEntity: "spawn_entity", Animation: "animation", BlockChangedAck: "acknowledge_player_digging", BlockUpdate: "block_change",
+  ClearTitles: "clear_titles", SetTitleSubtitle: "set_title_subtitle", SetTitleText: "set_title_text", SetTitleTimes: "set_title_time",
   ChunkBatchFinished: "chunk_batch_finished", ChunkBatchStart: "chunk_batch_start", PluginMessage: "custom_payload", Commands: "declare_commands", Disconnect: "kick_disconnect",
   GameEvent: "game_state_change", KeepAlive: "keep_alive", ChunkDataAndLight: "map_chunk", Login: "login", PlayerAbilities: "abilities",
   PlayerInfoRemove: "player_remove", PlayerInfoUpdate: "player_info", PlayerPosition: "position", RemoveEntities: "entity_destroy",
@@ -94,6 +95,7 @@ assert.equal(data.entitiesByName.player.id, out.PLAYER_ENTITY_TYPE, "the player 
 const player: any = {
   entityId: 257, uuid: "12345678-1234-4234-8234-123456789abc", username: "Audit", gameMode: 1,
   x: -3.03125, y: 73.125, z: 20.03125, yaw: 270, pitch: -90, onGround: true,
+  properties: [{ name: "textures", value: "dGV4", signature: "c2ln" }, { name: "other", value: "x" }],
 };
 const component = { text: "Audit: héllo 世界", color: "gold" };
 /** The independent decoder gives 64-bit numbers as [high, low] pairs. */
@@ -201,6 +203,10 @@ assert.deepEqual(decoded("play", out.destroyEntities([1, 257]), "entity_destroy"
 const synced = decoded("play", out.entityTeleport(player), "sync_entity_position");
 assert.deepEqual([synced.entityId, synced.x, synced.y, synced.z, synced.yaw, synced.pitch, synced.onGround], [257, player.x, player.y, player.z, 270, -90, true]);
 assert.deepEqual(decoded("play", out.entityHeadLook(player), "entity_head_rotation"), { entityId: 257, headYaw: -64 });
+assert.deepEqual(decoded("play", out.titleTimes(5, 60, 15), "set_title_time"), { fadeIn: 5, stay: 60, fadeOut: 15 });
+assert.deepEqual(simplify(decoded("play", out.titleText({ text: "Hello", color: "gold" }), "set_title_text").text), { text: "Hello", color: "gold" });
+assert.deepEqual(simplify(decoded("play", out.titleSubtitle({ text: "sub" }), "set_title_subtitle").text), { text: "sub" });
+assert.equal(decoded("play", out.clearTitles(), "clear_titles").reset, true);
 const abilities = (mode: number, flying?: boolean): any => decoded("play", out.playerAbilities(mode, flying), "abilities");
 assert.equal(abilities(1).flags, 1 | 4 | 8); assert.equal(abilities(1, true).flags, 1 | 2 | 4 | 8); assert.equal(abilities(0).flags, 0); assert.equal(abilities(3).flags, 1 | 4);
 const time = decoded("play", out.timeUpdate(5, 6000, false), "update_time");
@@ -213,7 +219,7 @@ assert.deepEqual([unload.chunkX, unload.chunkZ], [-3, 5]);
 const added = decoded("play", out.playerListAdd([player]), "player_info");
 assert.equal(added.action._value, 0x1d);
 assert.deepEqual({ ...added.action, _value: undefined }, { _value: undefined, add_player: true, initialize_chat: false, update_game_mode: true, update_listed: true, update_latency: true, update_display_name: false, update_hat: false, update_list_order: false });
-assert.equal(added.data[0].uuid, player.uuid); assert.equal(added.data[0].player.name, "Audit"); assert.deepEqual(added.data[0].player.properties, []);
+assert.equal(added.data[0].uuid, player.uuid); assert.equal(added.data[0].player.name, "Audit"); assert.deepEqual(added.data[0].player.properties, [{ name: "textures", value: "dGV4", signature: "c2ln" }, { name: "other", value: "x", signature: undefined }]);
 assert.equal(added.data[0].gamemode, 1); assert.equal(added.data[0].latency, 0);
 const gameModeOnly = decoded("play", out.playerListUpdateGameMode(player), "player_info");
 assert.equal(gameModeOnly.action.update_game_mode, true); assert.equal(gameModeOnly.action.add_player, false); assert.equal(gameModeOnly.data[0].gamemode, 1);
