@@ -46,6 +46,8 @@ export class Player {
   readonly hotbar: number[] = new Array(9).fill(-1);
   /** Everything the player carries (see Inventory). The hotbar array above mirrors its hotbar slots. */
   readonly inventory = new Inventory();
+  /** Which skin layers this player shows (bits: cape, jacket, left and right sleeve, left and right pants leg, hat). Everything on until the client says otherwise. */
+  skinParts = 0x7f;
 
   /** Numbers the position updates we force on the client; it answers each with "Teleport Confirm". */
   private teleportCounter = 0;

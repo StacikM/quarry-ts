@@ -174,6 +174,10 @@ const settings = incoming("configuration", "settings", {
   locale: "en_us", viewDistance: 12, chatFlags: 0, chatColors: true, skinParts: 127, mainHand: 1, enableTextFiltering: false, enableServerListing: true, particleStatus: "all",
 });
 assert.equal(settings.id, ids.ConfigIn.ClientInformation); assert.equal(settings.reader.readString(), "en_us"); assert.equal(settings.reader.readByte(), 12);
+assert.deepEqual([settings.reader.readVarInt(), settings.reader.readBoolean(), settings.reader.readUnsignedByte()], [0, true, 127], "chat visibility, chat colours, then the skin layers the player shows");
+const playSettings = incoming("play", "settings", { locale: "en_us", viewDistance: 8, chatFlags: 0, chatColors: true, skinParts: 0x41, mainHand: 1, enableTextFiltering: false, enableServerListing: true, particleStatus: "all" });
+assert.equal(playSettings.id, ids.PlayIn.ClientInformation); playSettings.reader.readString(); playSettings.reader.readByte(); playSettings.reader.readVarInt(); playSettings.reader.readBoolean();
+assert.equal(playSettings.reader.readUnsignedByte(), 0x41, "the same layout in the play phase");
 
 // ------------------------------------------------------------------ play, clientbound
 for (const id of [-1, 0, 127, 128, 2147483647]) assert.equal(long(decoded("play", out.keepAlive(id), "keep_alive").keepAliveId), BigInt(id));

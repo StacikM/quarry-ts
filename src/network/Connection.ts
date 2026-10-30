@@ -37,6 +37,8 @@ export interface PendingLogin {
   /** Set once the client has answered our Known Packs question. */
   knownPacksAnswered: boolean;
   viewDistance: number | null;
+  /** Which parts of their skin the player shows (hat, jacket, sleeves, pants, cape), as the client reports it. */
+  skinParts?: number;
   /** Profile data from a proxy (skins). Empty for players who connect directly. */
   properties: ProfileProperty[];
 }

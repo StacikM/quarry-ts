@@ -2,7 +2,7 @@ import type { Connection } from "../../network/Connection";
 import type { PacketReader } from "../../network/PacketReader";
 import type { Player } from "../../game/Player";
 import { PlayIn } from "../packetIds";
-import { animation, blockChange, blockChangedAck, entityHeadLook, entityTeleport } from "../clientbound";
+import { animation, blockChange, blockChangedAck, entityHeadLook, entityTeleport, playerSkinParts } from "../clientbound";
 import { runCommand } from "../../game/commands";
 import { canOpenByHand, doorFor, isDoorBlock, placeDoor, planDoor, removeOtherDoorHalf, toggleDoor } from "../../game/doors";
 import { isReplaceable, placementState } from "../../game/placement";
@@ -120,6 +120,20 @@ export function handlePlay(conn: Connection, packetId: number, reader: PacketRea
         player.sendMessage("You don't have permission to use that command.", "red");
       } else if (mode >= GameMode.Survival && mode <= GameMode.Spectator) {
         player.setGameMode(mode);
+      }
+      break;
+    }
+
+    case PlayIn.ClientInformation: {
+      // Sent again whenever the player changes their settings (the skin layers they show, for example).
+      reader.readString(); // language
+      reader.readByte(); // view distance
+      reader.readVarInt(); // chat visibility
+      reader.readBoolean(); // chat colours
+      const parts = reader.readUnsignedByte();
+      if (parts !== player.skinParts) {
+        player.skinParts = parts;
+        player.server.broadcast(playerSkinParts(player), player);
       }
       break;
     }

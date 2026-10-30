@@ -30,7 +30,7 @@ async function main(): Promise<void> {
   type Pos = { x: number; y: number; z: number };
 
   /** A stand-in for a client that records everything the server sends it. */
-  function client(name: string, uuid: string): { conn: any; sent: Packet[]; player: any; joined: Packet[] } {
+  function client(name: string, uuid: string, skinParts?: number): { conn: any; sent: Packet[]; player: any; joined: Packet[] } {
     const sent: Packet[] = [];
     const conn = {
       player: null as unknown,
@@ -41,7 +41,9 @@ async function main(): Promise<void> {
       sendFrame: () => {},
       disconnect: () => {},
     };
-    server.addPlayer(conn as never, pendingLogin(name, uuid));
+    const pending = pendingLogin(name, uuid);
+    if (skinParts !== undefined) pending.skinParts = skinParts;
+    server.addPlayer(conn as never, pending);
     const player = conn.player as any;
     player.awaitingTeleport = null;
     const joined = [...sent];
@@ -323,6 +325,29 @@ async function main(): Promise<void> {
   assert.strictEqual(carol.player.gameMode, GameMode.Spectator, "a game mode that does not exist changes nothing");
   config.ops.pop();
   console.log("ok operators are told their level (F3+F4 needs it) and the game mode switcher obeys the same rule as /gamemode");
+
+  // ---------------------------------------------------------------- the second skin layer
+  const layersIn = (packets: Packet[]): Array<{ entityId: number; parts: number }> => packets.filter((p) => p.packetId === PlayOut.SetEntityData).map((p) => {
+    const reader = new PacketReader(p.body());
+    reader.readVarInt();
+    const entityId = reader.readVarInt();
+    assert.strictEqual(reader.readUnsignedByte(), 17, "the skin parts field of a player");
+    assert.strictEqual(reader.readVarInt(), 0, "a byte");
+    return { entityId, parts: reader.readUnsignedByte() };
+  });
+  const dave = client("Dave", "00000000-0000-0000-0000-000000000004", 0x41); // shows only the hat and the cape
+  const eve = client("Eve", "00000000-0000-0000-0000-000000000005", 0x7f);
+  assert.deepStrictEqual(layersIn(eve.joined).sort((a, b) => a.entityId - b.entityId).filter((l) => l.entityId === dave.player.entityId), [{ entityId: dave.player.entityId, parts: 0x41 }], "a newcomer is shown the layers the others chose");
+  assert.ok(layersIn(dave.joined).some((l) => l.entityId === eve.player.entityId || l.entityId === alice.player.entityId), "and the others are shown theirs");
+  assert.ok(layersIn(dave.joined).every((l) => l.parts === 0x7f), "players who said nothing show everything");
+  eve.sent.length = 0;
+  const settings = (parts: number): Packet => new PacketWriter(PlayIn.ClientInformation).writeString("en_us").writeByte(8).writeVarInt(0).writeBoolean(true).writeUnsignedByte(parts).writeVarInt(1).writeBoolean(false).writeBoolean(true).writeVarInt(0);
+  handlePlay(dave.conn, PlayIn.ClientInformation, readerFor(settings(0x03)));
+  assert.deepStrictEqual(layersIn(eve.sent), [{ entityId: dave.player.entityId, parts: 0x03 }], "changing the setting in game reaches the others");
+  eve.sent.length = 0;
+  handlePlay(dave.conn, PlayIn.ClientInformation, readerFor(settings(0x03)));
+  assert.strictEqual(eve.sent.length, 0, "and only when it changed");
+  console.log("ok skin layers (hat, jacket, sleeves...) are passed on to other players, at join and when changed");
 
   console.log("ALL NPC CHECKS PASS");
 }

@@ -27,6 +27,7 @@ import {
   keepAlive,
   playerAbilities,
   playerListAdd,
+  playerSkinParts,
   playerListRemove,
   spawnPlayer,
   spawnPosition,
@@ -316,6 +317,7 @@ export class MinecraftServer {
     player.y = spawn.y;
     player.z = spawn.z;
     player.properties = pending.properties;
+    player.skinParts = pending.skinParts ?? player.skinParts;
     conn.player = player;
     this.players.set(player.entityId, player);
     logger.info(`${player.username} joined from ${conn.address} (uuid ${player.uuid})`);
@@ -340,7 +342,9 @@ export class MinecraftServer {
     for (const other of this.players.values()) {
       if (other === player) continue;
       player.send(spawnPlayer(other));
+      player.send(playerSkinParts(other));
       other.send(spawnPlayer(player));
+      other.send(playerSkinParts(player));
     }
     this.npcs.showAllTo(player);
 

@@ -302,6 +302,14 @@ export function permissionLevel(playerEntityId: number, level: number): PacketWr
   return new PacketWriter(PlayOut.EntityStatus).writeInt(playerEntityId).writeByte(24 + level);
 }
 
+/** The entity data field of a player that says which parts of the skin show (the second layer: hat, jacket, sleeves, pants, and the cape). */
+export const PLAYER_SKIN_PARTS_FIELD = 17;
+
+/** Other players only see the second skin layer if the server passes on what the player's client says it shows. */
+export function playerSkinParts(player: Player): PacketWriter {
+  return entityMetadata(player.entityId, [{ index: PLAYER_SKIN_PARTS_FIELD, type: "byte", value: player.skinParts }]);
+}
+
 /** Moves and turns any entity (the "Entity Position Sync" packet). */
 export function entityPositionSync(entityId: number, x: number, y: number, z: number, yaw: number, pitch: number): PacketWriter {
   return new PacketWriter(PlayOut.EntityPositionSync)

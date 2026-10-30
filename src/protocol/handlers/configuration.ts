@@ -20,6 +20,11 @@ export function handleConfiguration(conn: Connection, packetId: number, reader: 
       reader.readString(); // language, e.g. "en_us"
       const viewDistance = reader.readByte(); // how many chunks the player wants to see
       pending.viewDistance = viewDistance > 0 ? viewDistance : null;
+      if (reader.remaining >= 3) {
+        reader.readVarInt(); // chat visibility
+        reader.readBoolean(); // chat colours
+        pending.skinParts = reader.readUnsignedByte(); // which layers of the skin to show
+      }
       break;
     }
 
