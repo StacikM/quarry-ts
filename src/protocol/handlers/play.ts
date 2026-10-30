@@ -6,6 +6,7 @@ import { animation, blockChange, blockChangedAck, entityHeadLook, entityTeleport
 import { runCommand } from "../../game/commands";
 import { canOpenByHand, doorFor, isDoorBlock, placeDoor, planDoor, removeOtherDoorHalf, toggleDoor } from "../../game/doors";
 import { isReplaceable, placementState } from "../../game/placement";
+import { breakUnsupported, canSurvive, upperHalfOf } from "../../game/support";
 import { GameMode } from "../../game/GameMode";
 import { FACE_OFFSETS, type BlockPosition } from "../../world/BlockPosition";
 import { Block } from "../../world/blocks";
@@ -214,6 +215,7 @@ function handleDigging(player: Player, reader: PacketReader): void {
     if (isDoorBlock(state)) {
       removeOtherDoorHalf(player.server, pos, state); // a door is two blocks: take both
     }
+    breakUnsupported(player.server, pos); // plants, torches... that stood on it break too
   } finally {
     player.send(blockChangedAck(sequence));
   }
@@ -291,12 +293,15 @@ function placeBlock(player: Player, hand: number, clicked: BlockPosition, face: 
   }
 
   const state = placementState(base, face, cursor, player.yaw);
-  if (state === null) return resync();
+  if (state === null || !canSurvive(world, target, state)) return resync();
 
   const event = player.server.plugins.events.emit("blockPlace", { player, position: target, state, cancelled: false });
   if (event.cancelled) return resync();
 
   player.server.setBlock(target, state);
+  const upper = upperHalfOf(state); // tall grass, sunflowers...: two blocks
+  const above = { x: target.x, y: target.y + 1, z: target.z };
+  if (upper !== undefined && isInWorld(above) && isReplaceable(world.getState(above))) player.server.setBlock(above, upper);
 }
 
 function isInWorld(pos: BlockPosition): boolean {

@@ -6,6 +6,9 @@ import { describeState, stateOf, withProps } from "../world/blockStates";
  * player stands and which part of which face they clicked.
  */
 
+/** The wall version of each standing torch (vanilla names them inconsistently). */
+const WALL_TORCH: Record<string, string> = { torch: "wall_torch", soul_torch: "soul_wall_torch", redstone_torch: "redstone_wall_torch" };
+
 // The four horizontal directions numbered like Minecraft does: 0 south, 1 west, 2 north, 3 east.
 const HORIZONTAL = ["south", "west", "north", "east"] as const;
 const OPPOSITE: Record<string, string> = { south: "north", north: "south", west: "east", east: "west", up: "down", down: "up" };
@@ -57,7 +60,7 @@ export function placementState(base: number, face: number, cursor: { x: number; 
   if (name === "torch" || name === "soul_torch" || name === "redstone_torch") {
     if (face === 0) return null;
     if (face === 1) return base;
-    return stateOf(`wall_${name}`, { facing: FACE_NAMES[face] });
+    return stateOf(WALL_TORCH[name], { facing: FACE_NAMES[face] });
   }
   if (name === "ladder") {
     return face >= 2 ? adjust(base, { facing: FACE_NAMES[face] }) : null;
