@@ -27,6 +27,7 @@ function quiet<T>(fn: () => T): T {
 
 async function main(): Promise<void> {
   fs.writeFileSync("ops.json", JSON.stringify(["OpUser"])); // read when the config module loads
+  fs.writeFileSync("server.json", JSON.stringify({ seed: 1337 })); // a fixed seed, so the save folder has a known name (servers normally get a random one)
   const { Scheduler } = await import("../src/plugins/Scheduler");
   const { EventBus } = await import("../src/plugins/EventBus");
   const { PluginManager } = await import("../src/plugins/PluginManager");

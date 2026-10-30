@@ -21,6 +21,26 @@ What it is **not**: it has not had a human code review or a security audit, it h
 
 *This is an unofficial project. It is not affiliated with, endorsed by or connected to Mojang Studios or Microsoft. "Minecraft" is a trademark of Mojang Studios.*
 
+## Installing a server
+
+The easy way is the interactive installer. It checks that Node.js 24 or newer is installed, installs and builds the server, and then asks a few questions (port, world type, seed, lobby protection, Velocity, operators):
+
+- **Windows:** double-click `install.bat`
+- **Linux and macOS:** `bash install.sh`
+
+The answers go into `server.json` (plus `velocity.json` and `ops.json` if you used them). Run `node scripts/setup.cjs` to answer the questions again. You can also edit the file by hand:
+
+```json
+{ "port": 25565, "motd": "My lobby", "maxPlayers": 50, "viewDistance": 6,
+  "generator": "void", "seed": 1234, "mapFolder": "maps/lobby", "protectWorld": true }
+```
+
+Every key is optional. `generator` is `natural`, `flat` or `void`. **Without a `seed`, every server gets its own random one**: it is made the first time the server starts and kept in `world/seed.txt`, so the world is the same after a restart. (A word works as a seed too.) A world saved by an older version under seed 1337 is found again with `"seed": 1337`.
+
+**Hosting panels:** the same settings can be given as environment variables, which win over the file: `QUARRY_PORT` (or the panel's `SERVER_PORT`), `QUARRY_GENERATOR`, `QUARRY_SEED`, `QUARRY_MAP`, `QUARRY_PROTECT_WORLD`, `QUARRY_MOTD`, `QUARRY_MAX_PLAYERS`, `QUARRY_VIEW_DISTANCE`, `QUARRY_VELOCITY_SECRET` and `QUARRY_OPS` (names separated by commas).
+
+**Pterodactyl:** import [pterodactyl/egg-quarry-ts.json](pterodactyl/egg-quarry-ts.json) (Admin area, Nests, Import Egg) and create a server from it. The install script downloads this repository's `mc-1.21.11` branch from GitHub, builds it, and the panel shows every setting above as a variable. Reinstalling the server updates the program and keeps the world and settings. After changing `pterodactyl/install.sh` or the variables in `pterodactyl/build-egg.cjs`, run `node pterodactyl/build-egg.cjs` to rebuild the egg file.
+
 ## Running it
 
 ```sh
@@ -45,7 +65,7 @@ Everything here is in [src/config.ts](src/config.ts) (the map can also be set wi
 - **Protection.** `lobby: { protectWorld: true }` lets only operators build or break, and puts everyone else in adventure mode.
 - **Sending players to other servers.** Behind Velocity, a plugin can call `player.connectToServer("survival")` (the server name from `velocity.toml`).
 
-**Before you play:** type `op YourMinecraftName` in the server console (it saves the name to an `ops.json` file in the folder you start the server from, which you can also edit by hand, like `["YourName"]`). Operators can use `/gamemode` and `/tp` and can build inside the spawn protection area. The file is ignored by git, so your name is never committed. Everything else you may want to change is in [src/config.ts](src/config.ts): the seed, the port, the MOTD, view distance, and whether the world is `"natural"` or `"flat"`.
+**Before you play:** type `op YourMinecraftName` in the server console (it saves the name to an `ops.json` file in the folder you start the server from, which you can also edit by hand, like `["YourName"]`). Operators can use `/gamemode` and `/tp` and can build inside the spawn protection area. The file is ignored by git, so your name is never committed. The seed, port, MOTD, view distance and world type are in `server.json` (see "Installing a server" above); everything else you may want to change is in [src/config.ts](src/config.ts).
 
 ## Commands
 
