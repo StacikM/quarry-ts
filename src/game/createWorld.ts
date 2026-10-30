@@ -38,7 +38,7 @@ function readOrCreateSeed(): number {
   } catch {
     // no seed yet
   }
-  const seed = randomInt(-0x80000000, 0x80000000);
+  const seed = randomInt(1, 0x80000000);
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, `${seed}
