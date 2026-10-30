@@ -11,6 +11,10 @@ BRANCH="${GIT_BRANCH:-mc-1.21.11}"
 mkdir -p "$TARGET"
 cd "$TARGET"
 
+# This script runs as root, but the folder belongs to the panel's user (a reinstall finds the .git of the first
+# install), and git refuses a repository owned by somebody else ("dubious ownership"). The folder is ours.
+git config --global --add safe.directory "$TARGET"
+
 echo "Downloading Quarry.ts ($BRANCH) from $REPO"
 git init -q
 git remote remove origin 2>/dev/null || true
