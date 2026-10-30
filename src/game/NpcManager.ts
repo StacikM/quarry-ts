@@ -5,6 +5,8 @@ import type { Npc, NpcApi, NpcDefinition, NpcEquipment, SkinData } from "../plug
 import { itemId } from "../world/blockStates";
 import {
   ARMOR_STAND_ENTITY_TYPE,
+  ARMOR_STAND_FLAGS_FIELD,
+  PLAYER_SKIN_PARTS_FIELD,
   PLAYER_ENTITY_TYPE,
   EQUIPMENT_SLOTS,
   destroyEntities,
@@ -37,8 +39,8 @@ const NAME_HEIGHT = 1.8;
 const LOOK_DISTANCE = 8;
 const LOOK_EVERY_TICKS = 4;
 
-/** Entity data field numbers. Entity: 0 flags, 2 custom name, 3 name shown. Player: 17 skin layers. Armor stand: 15 flags. */
-const META = { flags: 0, customName: 2, nameVisible: 3, playerSkinLayers: 17, armorStandFlags: 15 } as const;
+/** Entity data field numbers (checked against minecraft-data in protocol-check). Entity: 0 flags, 2 custom name, 3 name shown. */
+const META = { flags: 0, customName: 2, nameVisible: 3, playerSkinLayers: PLAYER_SKIN_PARTS_FIELD, armorStandFlags: ARMOR_STAND_FLAGS_FIELD } as const;
 const FLAG_GLOWING = 0x40;
 const FLAG_INVISIBLE = 0x20;
 const ALL_SKIN_LAYERS = 0x7f;

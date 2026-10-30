@@ -282,7 +282,7 @@ export type MetadataEntry =
 
 const METADATA_TYPE = { byte: 0, optionalComponent: 6, boolean: 8 } as const;
 
-/** Entity data fields: entity 0 = flags (bit 5, 0x20, is invisible), 2 = custom name, 3 = whether the name shows. Player 17 = skin layers; armor stand 15 = flags. */
+/** Entity data fields: entity 0 = flags (bit 5, 0x20, is invisible), 2 = custom name, 3 = whether the name shows. Player 16 = skin layers (15 is the main hand, 17 a float); armor stand 15 = flags. The numbers are checked against minecraft-data in protocol-check. */
 export function entityMetadata(entityId: number, entries: MetadataEntry[]): PacketWriter {
   const packet = new PacketWriter(PlayOut.SetEntityData).writeVarInt(entityId);
   for (const entry of entries) {
@@ -303,7 +303,10 @@ export function permissionLevel(playerEntityId: number, level: number): PacketWr
 }
 
 /** The entity data field of a player that says which parts of the skin show (the second layer: hat, jacket, sleeves, pants, and the cape). */
-export const PLAYER_SKIN_PARTS_FIELD = 17;
+export const PLAYER_SKIN_PARTS_FIELD = 16;
+
+/** The armor stand's flags (small, marker...). */
+export const ARMOR_STAND_FLAGS_FIELD = 15;
 
 /** Other players only see the second skin layer if the server passes on what the player's client says it shows. */
 export function playerSkinParts(player: Player): PacketWriter {

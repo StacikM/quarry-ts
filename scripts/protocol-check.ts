@@ -95,6 +95,16 @@ checkIds("play", "toClient", ids.PlayOut, {
 });
 assert.equal(data.entitiesByName.player.id, out.PLAYER_ENTITY_TYPE, "the player entity type number");
 assert.equal(data.entitiesByName.armor_stand.id, out.ARMOR_STAND_ENTITY_TYPE, "the armor stand entity type number");
+{
+  // A wrong entity data field number makes the real client throw ("Invalid entity data item type for field"), so these come from minecraft-data, not from memory.
+  const playerKeys: string[] = (data.entitiesByName.player as any).metadataKeys;
+  const standKeys: string[] = (data.entitiesByName.armor_stand as any).metadataKeys;
+  assert.equal(playerKeys.indexOf("player_mode_customisation"), out.PLAYER_SKIN_PARTS_FIELD, "the skin layers field of a player");
+  assert.equal(standKeys.indexOf("client_flags"), out.ARMOR_STAND_FLAGS_FIELD, "the flags field of an armor stand");
+  for (const keys of [playerKeys, standKeys]) {
+    assert.equal(keys.indexOf("shared_flags"), 0); assert.equal(keys.indexOf("custom_name"), 2); assert.equal(keys.indexOf("custom_name_visible"), 3);
+  }
+}
 
 const player: any = {
   entityId: 257, uuid: "12345678-1234-4234-8234-123456789abc", username: "Audit", gameMode: 1,

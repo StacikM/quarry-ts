@@ -374,7 +374,7 @@ async function main(): Promise<void> {
     const reader = new PacketReader(p.body());
     reader.readVarInt();
     const entityId = reader.readVarInt();
-    assert.strictEqual(reader.readUnsignedByte(), 17, "the skin parts field of a player");
+    assert.strictEqual(reader.readUnsignedByte(), 16, "the skin parts field of a player (15 is the main hand, 17 is a float)");
     assert.strictEqual(reader.readVarInt(), 0, "a byte");
     return { entityId, parts: reader.readUnsignedByte() };
   });
