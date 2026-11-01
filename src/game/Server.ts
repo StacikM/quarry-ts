@@ -1,5 +1,6 @@
 import net from "node:net";
 import { Connection } from "../network/Connection";
+import { admit } from "../network/abuse";
 import { frame } from "../network/framing";
 import type { PacketWriter } from "../network/PacketWriter";
 import { createWorld } from "./createWorld";
@@ -71,7 +72,15 @@ export class MinecraftServer {
   /** Fake players that plugins add (see plugins/types.ts, NpcApi). */
   readonly npcs = new NpcManager(this);
 
-  private readonly tcpServer = net.createServer((socket) => new Connection(socket, this));
+  private readonly tcpServer = net.createServer((socket) => {
+    const release = admit(socket);
+    if (!release) {
+      socket.destroy(); // that address already has too many connections open
+      return;
+    }
+    socket.once("close", release);
+    new Connection(socket, this);
+  });
   private keepAliveTimer: NodeJS.Timeout | null = null;
   private tickTimer: NodeJS.Timeout | null = null;
   private saveTimer: NodeJS.Timeout | null = null;

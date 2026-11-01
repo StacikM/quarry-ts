@@ -12,6 +12,7 @@ import { handlePlay } from "../protocol/handlers/play";
 import { configDisconnect, loginDisconnect, playDisconnect } from "../protocol/clientbound";
 import { normalizeIp } from "../util/ip";
 import { logger } from "../util/logger";
+import { recordJunk } from "./abuse";
 import type { MinecraftServer } from "../game/Server";
 import type { Player } from "../game/Player";
 
@@ -121,7 +122,12 @@ export class Connection {
         this.handlePacket(unframe(payload, this.compressionThreshold, MAX_PACKET_SIZE));
       }
     } catch (err) {
-      logger.warn(`Error from ${this.address}: ${(err as Error).message}`);
+      const message = (err as Error).message;
+      if (this.state === ConnectionState.Handshaking || this.state === ConnectionState.Status) {
+        recordJunk(this.address, message.replace(/[0-9]+/g, "N")); // a scanner: not worth a line each
+      } else {
+        logger.warn(`Error from ${this.address}: ${message}`);
+      }
       this.disconnect("Internal error while reading your packets");
     }
   }
