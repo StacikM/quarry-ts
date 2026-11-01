@@ -6,10 +6,12 @@ import { welcomePlugin } from "./motd/welcome";
 import { chatFormatPlugin } from "./chatfmt";
 import { lobbyPlugin } from "./lobby";
 import { npcsPlugin } from './npcs';
+import { worldEditPlugin } from "./worldedit";
+import { worldGuardPlugin } from "./worldguard";
 
 /**
  * Plugins that ship with the server. Add yours here:
  *   import { welcomePlugin } from "./welcome";
  *   export const builtinPlugins: Plugin[] = [welcomePlugin];
  */
-export const builtinPlugins: Plugin[] = [homePlugin, warpPlugin, protectPlugin, welcomePlugin, chatFormatPlugin, lobbyPlugin, npcsPlugin];
+export const builtinPlugins: Plugin[] = [homePlugin, warpPlugin, protectPlugin, welcomePlugin, chatFormatPlugin, lobbyPlugin, npcsPlugin, worldEditPlugin, worldGuardPlugin];

@@ -18,6 +18,7 @@ import type { Chunk } from "../world/Chunk";
 import type { PendingLogin } from "../network/Connection";
 import {
   blockChange,
+  multiBlockChange,
   chunkData,
   commandTree,
   destroyEntities,
@@ -267,6 +268,30 @@ export class MinecraftServer {
     if (pos.y < 0 || pos.y > 255) return;
     this.world.setBlock(pos, state);
     this.broadcast(blockChange(pos, state));
+  }
+
+  /**
+   * Like setBlock for many blocks at once: they are grouped by 16x16x16 section, so a big edit costs
+   * a few packets instead of one per block. Positions outside the build height are skipped.
+   */
+  setBlocks(changes: Iterable<{ x: number; y: number; z: number; state: number }>): void {
+    const sections = new Map<string, { x: number; y: number; z: number; state: number }[]>();
+    for (const change of changes) {
+      if (change.y < 0 || change.y > 255) continue;
+      this.world.setBlock(change, change.state);
+      const key = `${change.x >> 4},${change.y >> 4},${change.z >> 4}`;
+      const section = sections.get(key);
+      if (section) section.push(change);
+      else sections.set(key, [change]);
+    }
+    for (const [key, section] of sections) {
+      if (section.length === 1) {
+        this.broadcast(blockChange(section[0], section[0].state));
+      } else {
+        const [x, y, z] = key.split(",").map(Number);
+        this.broadcast(multiBlockChange(x, y, z, section));
+      }
+    }
   }
 
   /** Where new players appear. The height depends on the terrain, so it's looked up. */

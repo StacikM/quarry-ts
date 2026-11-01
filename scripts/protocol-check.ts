@@ -83,7 +83,7 @@ checkIds("play", "toServer", ids.PlayIn, {
   Interact: "use_entity", PickItemFromBlock: "pick_item_from_block", ChangeGameMode: "change_gamemode",
 });
 checkIds("play", "toClient", ids.PlayOut, {
-  SpawnEntity: "spawn_entity", Animation: "animation", BlockChangedAck: "acknowledge_player_digging", BlockUpdate: "block_change",
+  SpawnEntity: "spawn_entity", Animation: "animation", BlockChangedAck: "acknowledge_player_digging", BlockUpdate: "block_change", MultiBlockChange: "multi_block_change",
   ClearTitles: "clear_titles", SetTitleSubtitle: "set_title_subtitle", SetTitleText: "set_title_text", SetTitleTimes: "set_title_time",
   ChunkBatchFinished: "chunk_batch_finished", ChunkBatchStart: "chunk_batch_start", PluginMessage: "custom_payload", Commands: "declare_commands", Disconnect: "kick_disconnect",
   GameEvent: "game_state_change", KeepAlive: "keep_alive", ChunkDataAndLight: "map_chunk", Login: "login", PlayerAbilities: "abilities",
@@ -210,6 +210,13 @@ for (const position of [{ x: -33554432, y: -2048, z: 33554431 }, { x: 12345, y: 
   assert.equal(dig.reader.readVarInt(), 2); assert.deepEqual(dig.reader.readPosition(), position); assert.equal(dig.reader.readByte(), 1); assert.equal(dig.reader.readVarInt(), 77);
 }
 assert.equal(decoded("play", out.blockChangedAck(300), "acknowledge_player_digging").sequenceId, 300);
+{
+  // Section (-2, 3, 5): world x -32..-17, y 48..63, z 80..95.
+  const changes = [{ x: -32, y: 48, z: 80, state: 1 }, { x: -17, y: 63, z: 95, state: 1234 }, { x: -20, y: 50, z: 90, state: 20000 }];
+  const packet = decoded("play", out.multiBlockChange(-2, 3, 5, changes), "multi_block_change");
+  assert.deepEqual(packet.chunkCoordinates, { x: -2, z: 5, y: 3 });
+  assert.deepEqual(packet.records, changes.map((c) => c.state * 4096 + (((c.x & 15) << 8) | ((c.z & 15) << 4) | (c.y & 15))));
+}
 const moved = decoded("play", out.playerPosition(9, -3.5, 72.25, 9, 270, -90), "position");
 assert.equal(moved.teleportId, 9); assert.deepEqual([moved.x, moved.y, moved.z, moved.yaw, moved.pitch], [-3.5, 72.25, 9, 270, -90]);
 assert.deepEqual(decoded("play", out.setCenterChunk(-7, 12), "update_view_position"), { chunkX: -7, chunkZ: 12 });

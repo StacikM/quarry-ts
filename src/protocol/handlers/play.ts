@@ -243,10 +243,28 @@ function onPlayerMoved(player: Player, from: { x: number; y: number; z: number }
 function handleDigging(player: Player, reader: PacketReader): void {
   const status = reader.readVarInt();
   const pos = reader.readPosition();
-  reader.readByte(); // which face was hit
+  const face = reader.readByte(); // which face was hit
   const sequence = reader.readVarInt();
 
   try {
+    if (status === 0 && isInWorld(pos) && player.gameMode !== GameMode.Spectator) {
+      const interact = player.server.plugins.events.emit("playerInteract", {
+        player, position: pos, face, click: "left", item: itemName(itemInHand(player, 0)), cancelled: false,
+      });
+      if (interact.cancelled) {
+        // The client already removed the block on its screen; put it back, and ignore the finish of a slow dig.
+        cancelledDigs.set(player, pos);
+        player.send(blockChange(pos, player.server.world.getState(pos)));
+        return;
+      }
+      cancelledDigs.delete(player);
+    }
+    const cancelledDig = cancelledDigs.get(player);
+    if (status === 2 && cancelledDig && cancelledDig.x === pos.x && cancelledDig.y === pos.y && cancelledDig.z === pos.z) {
+      player.send(blockChange(pos, player.server.world.getState(pos)));
+      return;
+    }
+
     const brokeBlock = status === 2 || (status === 0 && player.gameMode === GameMode.Creative);
     if (!brokeBlock || !isInWorld(pos)) return;
 
@@ -269,6 +287,9 @@ function handleDigging(player: Player, reader: PacketReader): void {
   }
 }
 
+/** The block whose digging a plugin cancelled, per player, so the end of that dig does not break it anyway. */
+const cancelledDigs = new WeakMap<Player, BlockPosition>();
+
 /** The item in the hand the player used: the selected hotbar slot for the main hand. We know nothing about the off hand. */
 function itemInHand(player: Player, hand: number): number {
   return hand === 0 ? player.hotbar[player.heldSlot] : -1;
@@ -284,6 +305,19 @@ function handleBlockPlacement(player: Player, reader: PacketReader): void {
   const sequence = reader.readVarInt();
 
   try {
+    if (hand === 0 && isInWorld(clicked) && player.gameMode !== GameMode.Spectator) {
+      const interact = player.server.plugins.events.emit("playerInteract", {
+        player, position: clicked, face, click: "right", item: itemName(itemInHand(player, 0)), cancelled: false,
+      });
+      if (interact.cancelled) {
+        // The client may have drawn a block or opened a door: show what is really there.
+        const offset = FACE_OFFSETS[face];
+        for (const pos of offset ? [clicked, { x: clicked.x + offset.x, y: clicked.y + offset.y, z: clicked.z + offset.z }] : [clicked]) {
+          if (isInWorld(pos)) player.send(blockChange(pos, player.server.world.getState(pos)));
+        }
+        return;
+      }
+    }
     placeBlock(player, hand, clicked, face, cursor);
   } finally {
     player.send(blockChangedAck(sequence));

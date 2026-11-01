@@ -108,6 +108,13 @@ export interface ServerEvents {
   playerMove: { player: Player; from: { x: number; y: number; z: number } };
   blockBreak: { player: Player; position: BlockPosition; state: number; cancelled: boolean };
   blockPlace: { player: Player; position: BlockPosition; state: number; cancelled: boolean };
+  /**
+   * A player left-clicked ("left", starting to dig) or right-clicked ("right", with the main hand) a block.
+   * `item` is the name of the item in that hand without "minecraft:" ("wooden_axe"), or undefined when it is empty.
+   * Cancel to stop what the click would do (break the block, place a block, open a door): the client is corrected.
+   * It comes before blockBreak and blockPlace, which still fire for clicks that are not cancelled.
+   */
+  playerInteract: { player: Player; position: BlockPosition; face: number; click: "left" | "right"; item: string | undefined; cancelled: boolean };
   /** A player left-clicked ("left") or right-clicked ("right") an NPC. Sneaking is passed on. */
   npcInteract: { player: Player; npc: Npc; click: "left" | "right"; sneaking: boolean };
 }

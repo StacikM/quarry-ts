@@ -479,6 +479,18 @@ export function blockChange(pos: BlockPosition, state: number): PacketWriter {
   return new PacketWriter(PlayOut.BlockUpdate).writePosition(pos).writeVarInt(state);
 }
 
+/**
+ * Many blocks changed inside one 16x16x16 section. Each change is {x, y, z, state} in world coordinates;
+ * all of them must be inside the section (sectionX, sectionY, sectionZ).
+ */
+export function multiBlockChange(sectionX: number, sectionY: number, sectionZ: number, changes: ReadonlyArray<{ x: number; y: number; z: number; state: number }>): PacketWriter {
+  const section =
+    ((BigInt(sectionX) & 0x3fffffn) << 42n) | ((BigInt(sectionZ) & 0x3fffffn) << 20n) | (BigInt(sectionY) & 0xfffffn);
+  const packet = new PacketWriter(PlayOut.MultiBlockChange).writeLong(BigInt.asIntN(64, section));
+  // Each record: the block state, then where in the section it is (x, z, y, 4 bits each).
+  return packet.writeVarIntArray(changes.map((c) => c.state * 4096 + (((c.x & 15) << 8) | ((c.z & 15) << 4) | (c.y & 15))));
+}
+
 /** Confirms a dig or place the client sent with this sequence number, so it stops predicting. */
 export function blockChangedAck(sequence: number): PacketWriter {
   return new PacketWriter(PlayOut.BlockChangedAck).writeVarInt(sequence);

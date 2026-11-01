@@ -85,6 +85,7 @@ export const PlayOut = {
   Animation: 0x02,
   BlockChangedAck: 0x04,
   BlockUpdate: 0x08,
+  MultiBlockChange: 0x52, // many blocks of one 16x16x16 section at once
   ChunkBatchFinished: 0x0b,
   ChunkBatchStart: 0x0c,
   PluginMessage: 0x18,

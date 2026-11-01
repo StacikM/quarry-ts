@@ -13,6 +13,7 @@ The guide is split by topic. Read them in order the first time, or jump to what 
 | [5. Players](05-players.md) | Messages, titles, giving items, teleporting, moving a player to another server |
 | [6. NPCs and the whitelist](06-npcs.md) | Fake players with skins, equipment and click events; the `/whitelist` list |
 | [7. Recipes](07-recipes.md) | Protect an area, rank-prefixed chat, a teleport command with a cooldown |
+| [8. WorldEdit and WorldGuard](08-worldedit-and-worldguard.md) | The built-in building and region-protection plugins, and the API they use |
 
 The TypeScript contract for all of it is [src/plugins/types.ts](../../src/plugins/types.ts); the built-in plugins in `src/plugins/builtin/` are working examples.
 

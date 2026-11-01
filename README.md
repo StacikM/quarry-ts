@@ -86,7 +86,7 @@ Type these in game with a `/` in front, or in the server console (the terminal w
 | `/say <message>`, `/save`, `/list`, `/plugins`, `/seed` | operators / everyone | Broadcast, save the world now, who is online, plugins, world seed |
 | `/gamemode`, `/tp`, `/spawn` | in game only | Game mode (`c`, `s`, `a`, `sp` or 0-3), teleport to a player, go to spawn |
 
-From the bundled plugins: `/sethome`, `/home`, `/warp`, `/warps`, `/setwarp`, `/rules`. The console also has `stop` (save and shut down) and `stop force`.
+From the bundled plugins: `/sethome`, `/home`, `/warp`, `/warps`, `/setwarp`, `/rules`, and for operators a small **WorldEdit** (`//wand`, `//set`, `//replace`, `//copy`, `//paste`, `//undo`, spheres, walls, stack, move...) and **WorldGuard** (`/rg define`, owners, members, flags such as `build`, `entry` and `greeting`). They are rewrites with the same command names, not the Java plugins; see [docs/plugins/08-worldedit-and-worldguard.md](docs/plugins/08-worldedit-and-worldguard.md). The console also has `stop` (save and shut down) and `stop force`.
 
 **Bans:** they are saved in `bans.json` next to `ops.json` (both ignored by git). Names are very easy to change on this server because it does not check accounts, so a name ban stops casual griefing but a determined person just rejoins under another name. `/banip` is the stronger tool. Be careful with it on a home network: banning `127.0.0.1` blocks everyone playing on the same computer, and many people share one address behind a router. Operators cannot kick or ban other operators from in game; the console can.
 
@@ -182,7 +182,7 @@ module.exports = {
 };
 ```
 
-Plugins can listen to `playerJoin`, `playerQuit`, `playerChat`, `playerCommand`, `playerMove`, `blockBreak`, `blockPlace` and `npcInteract`. Some of those can be cancelled (set `event.cancelled = true`), and chat can be reshaped with `event.format`. Plugins can also add commands, run code later or repeatedly, save data, give players items, and add NPCs (fake players with skins, equipment and click events). Everything a plugin registers is removed when it is disabled, and a plugin that throws an error cannot take the server down.
+Plugins can listen to `playerJoin`, `playerQuit`, `playerChat`, `playerCommand`, `playerMove`, `blockBreak`, `blockPlace`, `playerInteract` and `npcInteract`. Some of those can be cancelled (set `event.cancelled = true`), and chat can be reshaped with `event.format`. Plugins can also add commands, run code later or repeatedly, save data, give players items, and add NPCs (fake players with skins, equipment and click events). Everything a plugin registers is removed when it is disabled, and a plugin that throws an error cannot take the server down.
 
 **The plugin guide** is split by topic in [docs/plugins/](docs/plugins/README.md): getting started, events, commands, timers and saved data, players, NPCs and the whitelist, and recipes. Every example in it is run by `npm run check`. The full API with comments is in [src/plugins/types.ts](src/plugins/types.ts).
 
