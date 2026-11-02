@@ -4,11 +4,18 @@ import { maxStackSize } from "../world/itemStacks";
 /**
  * What a player carries, numbered like the slots of the client's own inventory window:
  * 0 crafting result, 1-4 crafting grid, 5-8 armor, 9-35 the main part, 36-44 the hotbar, 45 the off hand.
- * Only items and counts are tracked (no names, enchantments or other item data).
+ * Supported names, lore, enchantments, dye, damage and unbreakability travel with each stack.
  */
 export interface ItemStack {
   itemId: number;
   count: number;
+  customName?: string;
+  lore?: string[];
+  enchantments?: Record<string, number>;
+  dyedColor?: number;
+  unbreakable?: boolean;
+  damage?: number;
+  potionEffects?: Array<{ name: string; amplifier: number; durationTicks: number }>;
 }
 
 export const SLOT_COUNT = 46;
@@ -20,13 +27,14 @@ export class Inventory {
   private readonly slots: Array<ItemStack | null> = new Array(SLOT_COUNT).fill(null);
 
   get(slot: number): ItemStack | null {
-    return this.slots[slot] ?? null;
+    return cloneStack(this.slots[slot] ?? null);
   }
 
   /** Puts a stack (or nothing) in a slot. Returns false for a slot number that does not exist. */
   set(slot: number, stack: ItemStack | null): boolean {
     if (!Number.isInteger(slot) || slot < 0 || slot >= SLOT_COUNT) return false;
-    this.slots[slot] = stack && stack.count > 0 && stack.itemId >= 0 ? { itemId: stack.itemId, count: stack.count } : null;
+    if (stack && (!Number.isInteger(stack.count) || stack.count < 1 || stack.count > maxStackSize(itemName(stack.itemId)) || !Number.isInteger(stack.itemId) || itemName(stack.itemId) === undefined)) return false;
+    this.slots[slot] = cloneStack(stack);
     return true;
   }
 
@@ -41,6 +49,7 @@ export class Inventory {
    * slots, the hotbar before the main part. Returns what did not fit and which slots changed.
    */
   add(itemId: number, count: number): { leftover: number; changed: number[] } {
+    if (!Number.isSafeInteger(count) || count < 0 || itemName(itemId) === undefined) throw new Error("Invalid item or count");
     const limit = maxStackSize(itemName(itemId));
     const order = [...range(HOTBAR_START, HOTBAR_END), ...range(MAIN_START, HOTBAR_START - 1)];
     const changed: number[] = [];
@@ -49,7 +58,7 @@ export class Inventory {
     for (const slot of order) {
       const stack = this.slots[slot];
       if (left <= 0) break;
-      if (!stack || stack.itemId !== itemId || stack.count >= limit) continue;
+      if (!stack || !sameItem(stack, { itemId, count: 1 }) || stack.count >= limit) continue;
       const moved = Math.min(left, limit - stack.count);
       stack.count += moved;
       left -= moved;
@@ -78,4 +87,14 @@ function range(from: number, to: number): number[] {
   const numbers: number[] = [];
   for (let i = from; i <= to; i++) numbers.push(i);
   return numbers;
+}
+
+/** Copy at ownership boundaries so callers cannot mutate stored stacks. */
+export function cloneStack(stack: ItemStack | null): ItemStack | null {
+  return stack ? { ...stack, ...(stack.enchantments ? { enchantments: { ...stack.enchantments } } : {}), ...(stack.lore ? { lore: [...stack.lore] } : {}), ...(stack.potionEffects ? { potionEffects: stack.potionEffects.map(effect => ({ ...effect })) } : {}) } : null;
+}
+export function sameItem(a: ItemStack | null, b: ItemStack | null): boolean {
+  if (!a || !b) return a === b;
+  const canonical = (s: ItemStack) => JSON.stringify(Object.entries({ ...s, count: 0, enchantments: s.enchantments ? Object.entries(s.enchantments).sort() : undefined }).filter(([, v]) => v !== undefined).sort(([a], [b]) => String(a).localeCompare(String(b))));
+  return canonical(a) === canonical(b);
 }

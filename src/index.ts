@@ -58,5 +58,6 @@ function shutdown(force: boolean): void {
 
 // Ctrl+C. Pressing it a second time while we are already stopping means "force".
 process.on("SIGINT", () => shutdown(stopping));
+process.on("SIGTERM", () => shutdown(stopping));
 
 logger.info("Type 'help' for console commands, 'stop' to shut down.");

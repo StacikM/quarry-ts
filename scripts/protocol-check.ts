@@ -80,9 +80,12 @@ checkIds("play", "toServer", ids.PlayIn, {
   ChunkBatchReceived: "chunk_batch_received", ClientCommand: "client_command", ClientInformation: "settings", KeepAlive: "keep_alive",
   PlayerPosition: "position", PlayerPositionAndLook: "position_look", PlayerLook: "look", PlayerStatusOnly: "flying", PlayerAbilities: "abilities",
   PlayerAction: "block_dig", HeldItemChange: "held_item_slot", SetCreativeSlot: "set_creative_slot", Swing: "arm_animation", UseItemOn: "block_place",
+  ContainerClick: "window_click", ContainerClose: "close_window", PluginMessage: "custom_payload", UseItem: "use_item",
   Interact: "use_entity", PickItemFromBlock: "pick_item_from_block", ChangeGameMode: "change_gamemode",
 });
 checkIds("play", "toClient", ids.PlayOut, {
+  ResetScore: "reset_score", DisplayObjective: "scoreboard_display_objective", Experience: "experience",
+  ScoreboardObjective: "scoreboard_objective", ScoreboardScore: "scoreboard_score",
   SpawnEntity: "spawn_entity", Animation: "animation", BlockChangedAck: "acknowledge_player_digging", BlockUpdate: "block_change", MultiBlockChange: "multi_block_change",
   ClearTitles: "clear_titles", SetTitleSubtitle: "set_title_subtitle", SetTitleText: "set_title_text", SetTitleTimes: "set_title_time",
   ChunkBatchFinished: "chunk_batch_finished", ChunkBatchStart: "chunk_batch_start", PluginMessage: "custom_payload", Commands: "declare_commands", Disconnect: "kick_disconnect",

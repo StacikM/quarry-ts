@@ -1,3 +1,5 @@
+import { writeItemStack } from "./inventoryPackets";
+import type { ItemStack } from "../game/Inventory";
 /**
  * One function per packet the server sends to clients.
  *
@@ -384,35 +386,24 @@ export function setHeldSlot(slot: number): PacketWriter {
 export const DYED_COLOR_COMPONENT = 42;
 
 /** An item stack: nothing (count 0) or an item id with a count, and at most a dye colour as extra data. */
-function writeItem(packet: PacketWriter, item: { itemId: number; count: number; dyedColor?: number } | null): void {
-  if (item === null || item.count <= 0 || item.itemId < 0) {
-    packet.writeVarInt(0);
-    return;
-  }
-  packet.writeVarInt(item.count).writeVarInt(item.itemId);
-  if (item.dyedColor === undefined) {
-    packet.writeVarInt(0).writeVarInt(0); // no component changes
-    return;
-  }
-  packet.writeVarInt(1).writeVarInt(0).writeVarInt(DYED_COLOR_COMPONENT).writeInt(item.dyedColor & 0xffffff);
-}
+const writeItem = writeItemStack;
 
 /** The places an entity can wear or hold something, in the numbers of the equipment packet. */
 export const EQUIPMENT_SLOTS = { mainHand: 0, offHand: 1, feet: 2, legs: 3, chest: 4, head: 5 } as const;
 
 /** What an entity holds and wears. An item of null shows an empty place (use it to take something off). */
-export function entityEquipment(entityId: number, items: Array<{ slot: number; item: { itemId: number; dyedColor?: number } | null }>): PacketWriter {
+export function entityEquipment(entityId: number, items: Array<{ slot: number; item: Omit<ItemStack, "count"> | null }>): PacketWriter {
   const packet = new PacketWriter(PlayOut.SetEquipment).writeVarInt(entityId);
   items.forEach((entry, index) => {
     const more = index < items.length - 1;
     packet.writeUnsignedByte(entry.slot | (more ? 0x80 : 0)); // the top bit says another entry follows
-    writeItem(packet, entry.item === null ? null : { itemId: entry.item.itemId, count: 1, dyedColor: entry.item.dyedColor });
+    writeItem(packet, entry.item === null ? null : { ...entry.item, count: 1 });
   });
   return packet;
 }
 
 /** Sets one slot of the player's own inventory window (0 = crafting result... 36-44 = hotbar, 9-35 = main). */
-export function setInventorySlot(slot: number, item: { itemId: number; count: number } | null, stateId = 0): PacketWriter {
+export function setInventorySlot(slot: number, item: ItemStack | null, stateId = 0): PacketWriter {
   const packet = new PacketWriter(PlayOut.ContainerSetSlot).writeUnsignedByte(0).writeVarInt(stateId).writeShort(slot);
   writeItem(packet, item);
   return packet;
@@ -500,10 +491,11 @@ export function blockChangedAck(sequence: number): PacketWriter {
  * What the player may do. Bits: 1 invulnerable, 2 flying, 4 may fly, 8 creative (instant breaking).
  * The two floats are the flying speed and the field-of-view modifier of walking (vanilla: 0.05 and 0.1).
  */
-export function playerAbilities(gameMode: GameMode, flying = false): PacketWriter {
+export function playerAbilities(gameMode: GameMode, flying = false, allowFlight = false): PacketWriter {
   let flags = 0;
   if (gameMode === GameMode.Creative) flags = 1 | 4 | 8;
   if (gameMode === GameMode.Spectator) flags = 1 | 4;
+  if (allowFlight) flags |= 4;
   if (flags & 4 && flying) flags |= 2;
   return new PacketWriter(PlayOut.PlayerAbilities).writeByte(flags).writeFloat(0.05).writeFloat(0.1);
 }

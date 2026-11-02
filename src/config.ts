@@ -53,6 +53,7 @@ function loadVelocity(): { enabled: boolean; secret: string } {
  * hosting panels such as Pterodactyl configure the server. An empty variable counts as not set.
  */
 interface Settings {
+  requiredPlugins?: string[];
   port?: number;
   motd?: string;
   maxPlayers?: number;
@@ -99,6 +100,10 @@ function loadSettings(): Settings {
   };
 
   const settings: Settings = {};
+  if (file.requiredPlugins !== undefined) {
+    if (!Array.isArray(file.requiredPlugins) || file.requiredPlugins.some(name => typeof name !== 'string' || !/^[a-zA-Z0-9_-]{1,32}$/.test(name))) throw new Error('requiredPlugins must be an array of plugin names');
+    settings.requiredPlugins = file.requiredPlugins as string[];
+  }
   settings.port = integer("the port", env("QUARRY_PORT") ?? env("SERVER_PORT") ?? file.port, 1, 65535);
   settings.maxPlayers = integer("maxPlayers", env("QUARRY_MAX_PLAYERS") ?? file.maxPlayers, 1, 100_000);
   settings.viewDistance = integer("viewDistance", env("QUARRY_VIEW_DISTANCE") ?? file.viewDistance, 2, 32);
@@ -132,6 +137,7 @@ const settings = loadSettings();
  * All the knobs you might want to turn live here.
  */
 export const config = {
+  requiredPlugins: settings.requiredPlugins ?? [],
   host: "0.0.0.0",
   /** The port to listen on (server.json, or the environment variable QUARRY_PORT). */
   port: settings.port ?? 25565,

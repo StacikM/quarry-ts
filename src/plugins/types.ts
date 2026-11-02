@@ -95,6 +95,13 @@ export interface NpcApi {
 
 /** Events a plugin can listen to. Events with `cancelled` can be stopped. */
 export interface ServerEvents {
+  /** Raw inbound plugin-channel payload from a client. Channel names do not authenticate the sender. */
+  pluginMessage: { player: Player; channel: string; data: Buffer };
+  /** Main hand slot is 0-8; offhand slot is 45. Fires for air and block use. */
+  itemUse: { player: Player; hand: 0 | 1; slot: number; item: string | undefined; cancelled: boolean };
+  playerDamage: { player: Player; attacker?: Player; damage: number; cause: string; cancelled: boolean };
+  playerDeath: { player: Player; killer?: Player; cancelled: boolean };
+  playerAttack: { player: Player; targetEntityId: number; cancelled: boolean };
   playerJoin: { player: Player };
   playerQuit: { player: Player };
   /**
@@ -106,6 +113,9 @@ export interface ServerEvents {
   playerChat: { player: Player; message: string; format: string; cancelled: boolean };
   playerCommand: { player: Player; command: string; args: string[]; cancelled: boolean };
   playerMove: { player: Player; from: { x: number; y: number; z: number } };
+  playerEntityInteract: { player: Player; target: Player; sneaking: boolean; cancelled: boolean };
+  inventoryClick: { player: Player; windowId: number; cancelled: boolean };
+  playerFlight: { player: Player; flying: boolean; cancelled: boolean };
   blockBreak: { player: Player; position: BlockPosition; state: number; cancelled: boolean };
   blockPlace: { player: Player; position: BlockPosition; state: number; cancelled: boolean };
   /**
