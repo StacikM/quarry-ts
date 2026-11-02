@@ -22,5 +22,8 @@ export const lobbyPlugin: Plugin = {
     };
     api.on("blockBreak", protect);
     api.on("blockPlace", protect);
+    api.on("explosion", (event) => {
+      event.cancelled = true; // nothing is destroyed in a lobby
+    });
   },
 };

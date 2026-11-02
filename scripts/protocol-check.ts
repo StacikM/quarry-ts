@@ -91,7 +91,7 @@ checkIds("play", "toClient", ids.PlayOut, {
   HeadRotation: "entity_head_rotation", SetCenterChunk: "update_view_position", SetDefaultSpawnPosition: "spawn_position", SetTime: "update_time",
   SystemChat: "system_chat", EntityPositionSync: "sync_entity_position", UnloadChunk: "unload_chunk",
   ContainerContent: "window_items", ContainerSetSlot: "set_slot", SetEquipment: "entity_equipment", SetEntityData: "entity_metadata", SetHeldSlot: "held_item_slot",
-  SetPlayerInventory: "set_player_inventory", SetPlayerTeam: "teams", EntityStatus: "entity_status",
+  SetPlayerInventory: "set_player_inventory", SetPlayerTeam: "teams", EntityStatus: "entity_status", Explosion: "explosion",
 });
 assert.equal(data.entitiesByName.player.id, out.PLAYER_ENTITY_TYPE, "the player entity type number");
 assert.equal(data.entitiesByName.armor_stand.id, out.ARMOR_STAND_ENTITY_TYPE, "the armor stand entity type number");
@@ -101,6 +101,13 @@ assert.equal(data.entitiesByName.armor_stand.id, out.ARMOR_STAND_ENTITY_TYPE, "t
   const standKeys: string[] = (data.entitiesByName.armor_stand as any).metadataKeys;
   assert.equal(playerKeys.indexOf("player_mode_customisation"), out.PLAYER_SKIN_PARTS_FIELD, "the skin layers field of a player");
   assert.equal(standKeys.indexOf("client_flags"), out.ARMOR_STAND_FLAGS_FIELD, "the flags field of an armor stand");
+  const tntKeys: string[] = (data.entitiesByName.tnt as any).metadataKeys;
+  assert.equal(tntKeys.indexOf("fuse"), out.TNT_FUSE_FIELD, "the fuse field of a primed TNT");
+  assert.equal(tntKeys.indexOf("block_state"), out.TNT_BLOCK_STATE_FIELD, "the block a primed TNT looks like");
+  assert.equal(data.entitiesByName.tnt.id, out.TNT_ENTITY_TYPE, "the primed TNT entity type number");
+  assert.equal((data as any).soundsByName["entity.generic.explode"].id, out.EXPLOSION_SOUND, "the explosion sound number");
+  assert.equal(data.particlesByName.explosion.id, out.EXPLOSION_PARTICLE, "the small explosion particle number");
+  assert.equal(data.particlesByName.explosion_emitter.id, out.EXPLOSION_EMITTER_PARTICLE, "the big explosion particle number");
   for (const keys of [playerKeys, standKeys]) {
     assert.equal(keys.indexOf("shared_flags"), 0); assert.equal(keys.indexOf("custom_name"), 2); assert.equal(keys.indexOf("custom_name_visible"), 3);
   }
@@ -280,6 +287,22 @@ const npcUuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
   assert.deepEqual(meta.metadata.map((entry: any) => [entry.key, entry.type]), [[0, "byte"], [2, "optional_component"], [3, "boolean"], [15, "byte"], [2, "optional_component"]]);
   assert.deepEqual([meta.metadata[0].value, meta.metadata[2].value, meta.metadata[3].value], [0x20, true, 0x11]);
   assert.deepEqual(simplify(meta.metadata[1].value), { text: "§aShop" }); assert.equal(meta.metadata[4].value, undefined);
+
+  const tnt = decoded("play", out.entityMetadata(302, [
+    { index: out.TNT_FUSE_FIELD, type: "int", value: 80 },
+    { index: out.TNT_BLOCK_STATE_FIELD, type: "blockState", value: 2140 },
+  ]), "entity_metadata");
+  assert.deepEqual(tnt.metadata.map((entry: any) => [entry.key, entry.type, entry.value]), [[8, "int", 80], [9, "block_state", 2140]]);
+
+  const blast = decoded("play", out.explosion(10.5, 64, -3.5, 4, 37, { x: 0.5, y: 0.25, z: -1 }), "explosion");
+  assert.deepEqual([blast.center.x, blast.center.y, blast.center.z, blast.radius, blast.blockCount], [10.5, 64, -3.5, 4, 37]);
+  assert.deepEqual(blast.playerKnockback, { x: 0.5, y: 0.25, z: -1 });
+  assert.equal(blast.explosionParticle.type, "explosion_emitter", "a big explosion shows the big particle");
+  assert.equal(blast.sound.soundId, out.EXPLOSION_SOUND, "the sound is the registry entry we mean");
+  assert.deepEqual(blast.blockParticles, []);
+  const quiet = decoded("play", out.explosion(0, 0, 0, 1, 0, null), "explosion");
+  assert.equal(quiet.playerKnockback, undefined, "no knockback is sent as nothing at all");
+  assert.equal(quiet.explosionParticle.type, "explosion", "a small explosion shows the small particle");
 
   const sync = decoded("play", out.entityPositionSync(300, 1.5, 64, -2.5, 180, -10), "sync_entity_position");
   assert.deepEqual([sync.entityId, sync.x, sync.y, sync.z, sync.yaw, sync.pitch], [300, 1.5, 64, -2.5, 180, -10]);

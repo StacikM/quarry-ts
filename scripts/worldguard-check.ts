@@ -250,6 +250,31 @@ async function main(): Promise<void> {
     console.log("ok the rules");
   }
 
+  // ---------------------------------------------------------------- explosions
+  {
+    server.explosions.random = () => 0.5;
+    const dirt = defaultState("dirt");
+    for (let y = Y; y <= Y + 4; y++) for (let z = 2; z <= 8; z++) for (let x = -6; x <= 12; x++) world.setBlock(at(x, y, z), air);
+    /** A block inside the spawn region and one outside it, both three blocks from the blast, in the open air. */
+    const blast = (): { inside: boolean; outside: boolean } => {
+      world.setBlock(at(3, Y + 1, 5), dirt);
+      world.setBlock(at(-3, Y + 1, 5), dirt);
+      server.explosions.explode(0.5, Y + 1.5, 5.5, 4);
+      return { inside: stateAt(3, Y + 1, 5) === air, outside: stateAt(-3, Y + 1, 5) === air };
+    };
+    assert.deepStrictEqual(blast(), { inside: false, outside: true }, "an explosion leaves a region alone, and destroys what is outside");
+    say(alice, "rg flag spawn tnt allow");
+    assert.deepStrictEqual(blast(), { inside: true, outside: true }, "tnt allow: the region can be destroyed");
+    say(alice, "rg flag spawn tnt deny");
+    assert.deepStrictEqual(blast(), { inside: false, outside: true }, "tnt deny: protected");
+    say(alice, "rg flag spawn tnt");
+    say(alice, "rg flag __global__ tnt deny");
+    assert.deepStrictEqual(blast(), { inside: false, outside: false }, "__global__ tnt deny protects the whole world");
+    say(alice, "rg flag __global__ tnt");
+    assert.deepStrictEqual(blast(), { inside: false, outside: true }, "and without it, only the regions are protected");
+    console.log("ok explosions");
+  }
+
   // ---------------------------------------------------------------- it is saved
   assert.ok(fs.existsSync(path.join("plugins-data", "worldguard.json")));
   server.plugins.disable("worldguard");

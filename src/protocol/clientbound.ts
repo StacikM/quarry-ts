@@ -278,9 +278,11 @@ export function spawnEntity(entityId: number, uuid: string, entityType: number, 
 export type MetadataEntry =
   | { index: number; type: "byte"; value: number }
   | { index: number; type: "boolean"; value: boolean }
+  | { index: number; type: "int"; value: number }
+  | { index: number; type: "blockState"; value: number }
   | { index: number; type: "optionalComponent"; value: ChatComponent | null };
 
-const METADATA_TYPE = { byte: 0, optionalComponent: 6, boolean: 8 } as const;
+const METADATA_TYPE = { byte: 0, int: 1, optionalComponent: 6, boolean: 8, blockState: 14 } as const;
 
 /** Entity data fields: entity 0 = flags (bit 5, 0x20, is invisible), 2 = custom name, 3 = whether the name shows. Player 16 = skin layers (15 is the main hand, 17 a float); armor stand 15 = flags. The numbers are checked against minecraft-data in protocol-check. */
 export function entityMetadata(entityId: number, entries: MetadataEntry[]): PacketWriter {
@@ -289,12 +291,36 @@ export function entityMetadata(entityId: number, entries: MetadataEntry[]): Pack
     packet.writeUnsignedByte(entry.index).writeVarInt(METADATA_TYPE[entry.type]);
     if (entry.type === "byte") packet.writeByte(entry.value);
     else if (entry.type === "boolean") packet.writeBoolean(entry.value);
+    else if (entry.type === "int" || entry.type === "blockState") packet.writeVarInt(entry.value);
     else {
       packet.writeBoolean(entry.value !== null);
       if (entry.value !== null) packet.writeTextComponent(entry.value);
     }
   }
   return packet.writeUnsignedByte(0xff); // end of the list
+}
+
+/** The entity type number of a primed TNT block, and its data fields: 8 = ticks until it explodes, 9 = the block it looks like. Checked against minecraft-data in protocol-check. */
+export const TNT_ENTITY_TYPE = 132;
+export const TNT_FUSE_FIELD = 8;
+export const TNT_BLOCK_STATE_FIELD = 9;
+
+/** Registry numbers of the explosion sound ("entity.generic.explode") and the two explosion particles. Checked against minecraft-data. */
+export const EXPLOSION_SOUND = 669;
+export const EXPLOSION_PARTICLE = 23;
+export const EXPLOSION_EMITTER_PARTICLE = 22;
+
+/**
+ * An explosion at (x, y, z): the sound and the particles. The blocks it destroys are sent separately as block changes.
+ * `knockback` is how much this player is thrown (their client adds it to their speed), or null for nobody.
+ */
+export function explosion(x: number, y: number, z: number, power: number, blockCount: number, knockback: { x: number; y: number; z: number } | null): PacketWriter {
+  const packet = new PacketWriter(PlayOut.Explosion).writeDouble(x).writeDouble(y).writeDouble(z).writeFloat(power).writeInt(blockCount);
+  packet.writeBoolean(knockback !== null);
+  if (knockback) packet.writeDouble(knockback.x).writeDouble(knockback.y).writeDouble(knockback.z);
+  packet.writeVarInt(power >= 2 ? EXPLOSION_EMITTER_PARTICLE : EXPLOSION_PARTICLE); // a particle without options has no data after its number
+  packet.writeVarInt(EXPLOSION_SOUND + 1); // a registry entry is sent as its number plus one (0 would mean "the sound follows")
+  return packet.writeVarInt(0); // no particles of the blocks themselves
 }
 
 /** Tells a player their own operator level (0-4): the client uses it to decide what it lets them try, like the F3+F4 game mode switcher. */

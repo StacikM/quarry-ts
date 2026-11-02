@@ -92,6 +92,7 @@ export const PlayOut = {
   ClearTitles: 0x0e,
   Commands: 0x10,
   ContainerContent: 0x12,
+  Explosion: 0x24,
   EntityStatus: 0x22, // events of an entity; 24-28 tell a player their operator level
   ContainerSetSlot: 0x14,
   Disconnect: 0x20,

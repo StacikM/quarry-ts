@@ -2,7 +2,7 @@ import type { Plugin } from "../../types";
 import type { Player } from "../../../game/Player";
 import { selectionOf } from "../worldedit/session";
 import {
-  ALLOW_DENY_FLAGS, checkBuild, checkEntry, colorize, contains, GLOBAL_REGION, MAX_TEXT_LENGTH, readRegions, regionIdsAt,
+  ALLOW_DENY_FLAGS, checkBuild, checkEntry, colorize, contains, explosionMayDestroy, GLOBAL_REGION, MAX_TEXT_LENGTH, readRegions, regionIdsAt,
   TEXT_FLAGS, validPlayerName, validRegionId, type BuildAction, type Pos, type Region,
 } from "./regions";
 
@@ -11,7 +11,7 @@ import {
  * The command is /region (or /rg); only operators can use it. Boxes are chosen with the WorldEdit
  * selection (the wooden axe, //pos1 and //pos2). The rules are described in regions.ts.
  *
- * It looks at breaking and placing blocks and at walking in and out. It does not protect doors and the like,
+ * It looks at breaking and placing blocks (lighting TNT counts as breaking it), explosions, and walking in and out. It does not protect doors and the like,
  * and there is no fighting or fire on this server, so the flags for those do not exist.
  */
 
@@ -191,6 +191,10 @@ export const worldGuardPlugin: Plugin = {
       event.cancelled = true;
       event.player.sendMessage(colorize(verdict.message), "red");
     };
+    // Explosions leave the blocks of protected regions alone.
+    api.on("explosion", (event) => {
+      event.blocks = event.blocks.filter((pos) => explosionMayDestroy(regions, pos));
+    });
     api.on("blockBreak", guardBuild("block-break"));
     api.on("blockPlace", guardBuild("block-place"));
 

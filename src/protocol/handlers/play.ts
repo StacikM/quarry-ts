@@ -12,6 +12,7 @@ import { FACE_OFFSETS, type BlockPosition } from "../../world/BlockPosition";
 import { Block } from "../../world/blocks";
 import { describeState, itemName, stateForItem } from "../../world/blockStates";
 import { itemForState } from "../../game/pick";
+import { isLighter, isTnt } from "../../game/Explosions";
 import { HOTBAR_START } from "../../game/Inventory";
 
 /** Falling below this teleports you back to spawn. */
@@ -347,6 +348,12 @@ function placeBlock(player: Player, hand: number, clicked: BlockPosition, face: 
 
   const world = player.server.world;
   const clickedState = world.getState(clicked);
+
+  // Flint and steel (or a fire charge) lights TNT instead of placing anything.
+  if (isTnt(clickedState) && isLighter(itemName(itemInHand(player, hand)))) {
+    player.server.explosions.igniteByPlayer(player, clicked);
+    return;
+  }
 
   // Right-clicking a door opens or closes it (also in adventure mode), instead of placing anything.
   if (isDoorBlock(clickedState)) {

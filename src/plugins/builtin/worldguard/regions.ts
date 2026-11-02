@@ -9,6 +9,10 @@
  *       allow    -> everybody
  *       deny     -> nobody (operators still can, unless they turned their bypass off)
  *     block-break and block-place win over build for their own action.
+ *   tnt            whether explosions may destroy blocks there
+ *       not set  -> protected, in a real region (the global region has nothing protected until you set deny)
+ *       allow    -> they may
+ *       deny     -> they may not
  *   entry          deny -> only owners and members may walk into the region
  *   greeting / farewell / deny-message   text ("&a" colour codes work)
  *
@@ -36,7 +40,7 @@ export interface Region {
 
 export const GLOBAL_REGION = "__global__";
 
-export const ALLOW_DENY_FLAGS = ["build", "block-break", "block-place", "entry"] as const;
+export const ALLOW_DENY_FLAGS = ["build", "block-break", "block-place", "entry", "tnt"] as const;
 export const TEXT_FLAGS = ["greeting", "farewell", "deny-message"] as const;
 
 export const DEFAULT_DENY_MESSAGE = "Hey! Sorry, but you can't build here.";
@@ -79,6 +83,14 @@ export function checkBuild(regions: Iterable<Region>, name: string, pos: Pos, ac
     if (!allowed) return { allowed: false, message: region.flags["deny-message"] ?? DEFAULT_DENY_MESSAGE };
   }
   return { allowed: true };
+}
+
+/** Whether an explosion may destroy the block at this position. */
+export function explosionMayDestroy(regions: Iterable<Region>, pos: Pos): boolean {
+  return decisiveRegions(regions, pos).every((region) => {
+    const rule = region.flags.tnt;
+    return rule === "allow" || (rule === undefined && region.id === GLOBAL_REGION);
+  });
 }
 
 /** Whether this player may walk into this position, going by the entry flag of the regions there. */

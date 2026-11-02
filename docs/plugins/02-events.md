@@ -14,6 +14,7 @@ Subscribe with `api.on(eventName, handler)`. Handlers run synchronously in regis
 | `blockBreak` | `player`, `position: {x,y,z}`, `state`, `cancelled` | Before removing the block. Cancel to keep it; the server restores the client's predicted block. |
 | `blockPlace` | `player`, `position: {x,y,z}`, `state`, `cancelled` | Before placing at the target position, which is next to the clicked face. Cancel to deny placement and correct the client. |
 | `playerInteract` | `player`, `position`, `face`, `click: "left" | "right"`, `item`, `cancelled` | A player left-clicked (started digging) or right-clicked a block with the main hand. `item` is the name of the item in hand, such as `wooden_axe`, or `undefined`. Cancel to stop the break, placement or door; the client is corrected. It comes before `blockBreak` and `blockPlace`. Spectators are ignored. |
+| `explosion` | `position: {x,y,z}`, `power`, `blocks: {x,y,z}[]`, `cancelled` | Before an explosion (lit TNT, or a plugin calling `api.server.explosions.explode(x, y, z, power)`) changes anything. `blocks` are the blocks it will destroy: assign a shorter list to protect some, or cancel to stop the whole explosion (no blocks, no sound, nobody thrown). |
 | `npcInteract` | `player`, `npc`, `click: "left" \| "right"`, `sneaking` | A player hit (`left`) or right-clicked (`right`) an NPC, once per click and only with the main hand. Spectators are ignored. Cannot cancel. See [NPCs](06-npcs.md). |
 
 ## Blocks

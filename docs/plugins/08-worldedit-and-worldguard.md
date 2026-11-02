@@ -47,6 +47,7 @@ Flags:
 | --- | --- | --- |
 | `build` | `allow` / `deny` | Breaking and placing. Not set: only owners and members. `allow`: everybody. `deny`: nobody (operators with bypass still can) |
 | `block-break`, `block-place` | `allow` / `deny` | Like `build`, for one action; they win over `build` |
+| `tnt` | `allow` / `deny` | Whether explosions destroy blocks there. Not set: a region is protected (and the global region is not). Lighting TNT counts as breaking the block, so `build` applies to that too |
 | `entry` | `deny` | Only owners and members may walk in (others are put back where they were) |
 | `greeting`, `farewell` | text | Sent to a player who walks in or out. `&a` colour codes work |
 | `deny-message` | text | What a refused builder is told instead of "Hey! Sorry, but you can't build here." |

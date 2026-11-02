@@ -1,6 +1,7 @@
 import net from "node:net";
 import { Connection } from "../network/Connection";
 import { admit } from "../network/abuse";
+import { Explosions } from "./Explosions";
 import { frame } from "../network/framing";
 import type { PacketWriter } from "../network/PacketWriter";
 import { createWorld } from "./createWorld";
@@ -71,6 +72,8 @@ export class MinecraftServer {
   private nextEntityId = 1;
   /** Fake players that plugins add (see plugins/types.ts, NpcApi). */
   readonly npcs = new NpcManager(this);
+  /** TNT and explosions (see Explosions.ts). */
+  readonly explosions = new Explosions(this);
 
   private readonly tcpServer = net.createServer((socket) => {
     const release = admit(socket);
@@ -189,6 +192,7 @@ export class MinecraftServer {
     this.plugins.scheduler.tick();
     try {
       this.npcs.tick(this.tickCount);
+      this.explosions.tick();
       if (this.tickCount % 20 === 0) for (const player of this.players.values()) player.syncPermissionLevel(); // /op and /deop take effect on the client within a second
       this.streamChunks();
       this.stepAutosave();
@@ -381,6 +385,7 @@ export class MinecraftServer {
       other.send(playerSkinParts(player));
     }
     this.npcs.showAllTo(player);
+    this.explosions.showAllTo(player);
 
     this.broadcastMessage(`${player.username} joined the game`, "yellow");
     this.plugins.events.emit("playerJoin", { player });

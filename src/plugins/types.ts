@@ -115,6 +115,11 @@ export interface ServerEvents {
    * It comes before blockBreak and blockPlace, which still fire for clicks that are not cancelled.
    */
   playerInteract: { player: Player; position: BlockPosition; face: number; click: "left" | "right"; item: string | undefined; cancelled: boolean };
+  /**
+   * An explosion is about to happen at `position` (TNT, or a plugin calling `server.explosions.explode`).
+   * `blocks` are the blocks it will destroy: remove entries to protect them, or set `cancelled` to stop the whole thing.
+   */
+  explosion: { position: { x: number; y: number; z: number }; power: number; blocks: BlockPosition[]; cancelled: boolean };
   /** A player left-clicked ("left") or right-clicked ("right") an NPC. Sneaking is passed on. */
   npcInteract: { player: Player; npc: Npc; click: "left" | "right"; sneaking: boolean };
 }
