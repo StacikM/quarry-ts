@@ -15,6 +15,9 @@ interface Task {
  * The server calls tick() every 50 ms.
  */
 export class Scheduler {
+  /** Told how long each task took (the plugin manager uses it to find slow plugins). */
+  constructor(private readonly onTiming?: (owner: string, what: string, ms: number) => void) {}
+
   private currentTick = 0;
   private tasks: Task[] = [];
   /** The batch being run right now, so removeAll() can cancel those too. */
@@ -40,11 +43,13 @@ export class Scheduler {
     for (const task of due) {
       // An earlier task in this same batch may have disabled this task's plugin.
       if (task.cancelled) continue;
+      const startedAt = performance.now();
       try {
         task.fn();
       } catch (err) {
         logger.error(`Plugin "${task.owner}" crashed in a scheduled task: ${formatError(err)}`);
       }
+      this.onTiming?.(task.owner, "a scheduled task", performance.now() - startedAt);
       // The task itself may have disabled its own plugin, so check again.
       if (!task.cancelled && task.repeatEvery !== undefined) {
         task.runAtTick = this.currentTick + task.repeatEvery;

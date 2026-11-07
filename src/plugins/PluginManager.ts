@@ -3,6 +3,7 @@ import path from "node:path";
 import { EventBus } from "./EventBus";
 import { CommandRegistry } from "./CommandRegistry";
 import { Scheduler } from "./Scheduler";
+import { PluginProfiler } from "./PluginProfiler";
 import { builtinPlugins } from "./builtin";
 import type { Plugin, PluginApi, PluginLogger } from "./types";
 import type { MinecraftServer } from "../game/Server";
@@ -30,9 +31,11 @@ const VALID_PLUGIN_NAME = /^[A-Za-z0-9_-]{1,32}$/;
 const RESERVED_PLUGIN_NAMES = new Set(["core"]);
 
 export class PluginManager {
-  readonly events = new EventBus();
+  /** How much time each plugin uses (shown by /perf). */
+  readonly profiler = new PluginProfiler();
+  readonly events = new EventBus((owner, event, ms) => this.profiler.record(owner, event, ms));
   readonly commands = new CommandRegistry();
-  readonly scheduler = new Scheduler();
+  readonly scheduler = new Scheduler((owner, what, ms) => this.profiler.record(owner, what, ms));
 
   private readonly enabled = new Map<string, Plugin>();
 
@@ -157,8 +160,12 @@ export class PluginManager {
         }
       },
       saveData: (data) => {
+        // Writing and fsync-ing a file blocks the whole server, so it is timed: a plugin that saves too often
+        // (on every checkpoint, say) or has a big data file shows up in /perf and in a slow-plugin warning.
+        const startedAt = performance.now();
         fs.mkdirSync(DATA_DIR, { recursive: true });
         writeFileAtomic(dataFile, JSON.stringify(data, null, 2));
+        this.profiler.record(owner, "saving its data", performance.now() - startedAt);
       },
     };
   }

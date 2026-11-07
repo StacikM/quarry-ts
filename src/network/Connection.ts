@@ -13,6 +13,10 @@ import { configDisconnect, loginDisconnect, playDisconnect } from "../protocol/c
 import { normalizeIp } from "../util/ip";
 import { logger } from "../util/logger";
 import { recordJunk } from "./abuse";
+import { warnSlow } from "../util/slowLog";
+
+/** Handling one packet that takes this long is reported. */
+const SLOW_PACKET_MS = 50;
 import type { MinecraftServer } from "../game/Server";
 import type { Player } from "../game/Player";
 
@@ -136,18 +140,28 @@ export class Connection {
   private handlePacket(packet: Buffer): void {
     const reader = new PacketReader(packet);
     const packetId = reader.readVarInt();
-
-    switch (this.state) {
-      case ConnectionState.Handshaking:
-        return handleHandshake(this, packetId, reader);
-      case ConnectionState.Status:
-        return handleStatus(this, packetId, reader);
-      case ConnectionState.Login:
-        return handleLogin(this, packetId, reader);
-      case ConnectionState.Configuration:
-        return handleConfiguration(this, packetId, reader);
-      case ConnectionState.Play:
-        return handlePlay(this, packetId, reader);
+    const startedAt = performance.now();
+    try {
+      switch (this.state) {
+        case ConnectionState.Handshaking:
+          return handleHandshake(this, packetId, reader);
+        case ConnectionState.Status:
+          return handleStatus(this, packetId, reader);
+        case ConnectionState.Login:
+          return handleLogin(this, packetId, reader);
+        case ConnectionState.Configuration:
+          return handleConfiguration(this, packetId, reader);
+        case ConnectionState.Play:
+          return handlePlay(this, packetId, reader);
+      }
+    } finally {
+      const took = performance.now() - startedAt;
+      if (took >= SLOW_PACKET_MS) {
+        warnSlow(
+          `slow-packet:${this.state}:${packetId}`,
+          `Slow packet: handling packet 0x${packetId.toString(16)} (${ConnectionState[this.state]}) from ${this.player?.username ?? this.address} took ${took.toFixed(0)} ms. Plugins that listen to it are timed in /perf`,
+        );
+      }
     }
   }
 

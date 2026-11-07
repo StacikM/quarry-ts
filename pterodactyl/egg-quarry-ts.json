@@ -30,6 +30,16 @@
     },
     "variables": [
         {
+            "name": "Check for updates",
+            "description": "Ask GitHub when the server starts (and every few hours) whether a newer version exists, and say so in the console. Nothing is downloaded or changed.",
+            "env_variable": "QUARRY_CHECK_UPDATES",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
             "name": "Whitelist",
             "description": "Only listed names and operators may join. Manage names with whitelist add/remove in the console.",
             "env_variable": "QUARRY_WHITELIST",

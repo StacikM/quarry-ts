@@ -2,6 +2,7 @@ import net from "node:net";
 import { Connection } from "../network/Connection";
 import { admit } from "../network/abuse";
 import { Explosions } from "./Explosions";
+import { warnSlow } from "../util/slowLog";
 import { frame } from "../network/framing";
 import type { PacketWriter } from "../network/PacketWriter";
 import { createWorld } from "./createWorld";
@@ -44,6 +45,8 @@ import {
  */
 /** One server tick is 50 ms, so there are 20 a second. */
 const TICK_MS = 50;
+/** A tick that takes this long is explained in the console (what took the time). */
+const SLOW_TICK_MS = 100;
 /** How much of each tick a running autosave may use. A 20 chunk autosave then takes about 3 ticks. */
 const AUTOSAVE_BUDGET_MS = 5;
 /** After a stall we run at most this many missed ticks back to back; the rest are skipped. */
@@ -173,7 +176,13 @@ export class MinecraftServer {
    */
   getChunkFrame(chunk: Chunk, compressionThreshold: number): Buffer {
     if (chunk.cachedFrame?.threshold === compressionThreshold) return chunk.cachedFrame.frame;
+    const startedAt = performance.now();
     const bytes = frame(chunkData(chunk, this.world.getLight(chunk)).body(), compressionThreshold);
+    const timings = this.world.timings;
+    const took = performance.now() - startedAt; // includes working out the light, which has its own line in /perf
+    timings.chunksEncoded++;
+    timings.encodeMs += took;
+    timings.encodeMaxMs = Math.max(timings.encodeMaxMs, took);
     chunk.cachedFrame = { threshold: compressionThreshold, frame: bytes };
     chunk.light = null; // the light is only needed to make the packet; it is worked out again after a change
     return bytes;
@@ -190,16 +199,33 @@ export class MinecraftServer {
   private tick(): void {
     const startedAt = performance.now();
     this.plugins.scheduler.tick();
+    const afterPlugins = performance.now();
+    let afterWorld = afterPlugins;
+    let afterChunks = afterPlugins;
+    const before = { ...this.world.timings };
     try {
       this.npcs.tick(this.tickCount);
       this.explosions.tick();
       if (this.tickCount % 20 === 0) for (const player of this.players.values()) player.syncPermissionLevel(); // /op and /deop take effect on the client within a second
+      afterWorld = performance.now();
       this.streamChunks();
+      afterChunks = performance.now();
       this.stepAutosave();
     } catch (err) {
       logger.error(`Sending chunks or autosaving failed: ${formatError(err)}`);
     }
-    this.stats.recordTick(performance.now() - startedAt);
+    const endedAt = performance.now();
+    this.stats.recordTick(endedAt - startedAt);
+    if (endedAt - startedAt >= SLOW_TICK_MS) {
+      const t = this.world.timings;
+      const ms = (value: number): string => value.toFixed(0);
+      warnSlow(
+        "slow-tick",
+        `Slow tick: ${ms(endedAt - startedAt)} ms (a tick is 50). Plugin tasks ${ms(afterPlugins - startedAt)} ms, NPCs and TNT ${ms(afterWorld - afterPlugins)} ms, ` +
+          `sending chunks ${ms(afterChunks - afterWorld)} ms (loading the map ${ms(t.generateMs - before.generateMs)}, light ${ms(t.lightMs - before.lightMs)}, ` +
+          `packing ${ms(t.encodeMs - before.encodeMs)}), autosave ${ms(endedAt - afterChunks)} ms`,
+      );
+    }
 
     // Forget old stall measurements every 5 minutes so one old spike does not show forever.
     if (++this.tickCount % (20 * 300) === 0) this.stats.resetEventLoop();

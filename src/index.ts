@@ -2,6 +2,8 @@ import readline from "node:readline";
 import { MinecraftServer } from "./game/Server";
 import { runConsoleCommand } from "./consoleCommands";
 import { logger } from "./util/logger";
+import { config } from "./config";
+import { startUpdateChecks } from "./versionCheck";
 
 /**
  * Entry point. Starts the server and lets you type in the console:
@@ -12,6 +14,7 @@ import { logger } from "./util/logger";
 logger.info("Quarry.ts: Minecraft 1.21.11 server");
 const server = new MinecraftServer();
 server.start();
+if (config.checkForUpdates) startUpdateChecks(); // in the background: says in the console if GitHub has a newer version
 
 const consoleInput = readline.createInterface({ input: process.stdin });
 

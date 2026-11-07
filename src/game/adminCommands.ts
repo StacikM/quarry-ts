@@ -85,7 +85,23 @@ function workLines(server: MinecraftServer): string[] {
       `slowest ${t.generateMaxMs.toFixed(2)} ms)`,
     `${colour.gray}Chunks lit: ${colour.white}${t.chunksLit}${colour.gray} (average ${average(t.lightMs, t.chunksLit)} ms, ` +
       `slowest ${t.lightMaxMs.toFixed(2)} ms)`,
+    `${colour.gray}Chunks packed for sending: ${colour.white}${t.chunksEncoded}${colour.gray} (average ${average(t.encodeMs, t.chunksEncoded)} ms including light, ` +
+      `slowest ${t.encodeMaxMs.toFixed(2)} ms)`,
     `${colour.gray}Chunks waiting to be sent to players: ${colour.white}${server.getPendingChunkCount()}`,
+    ...pluginLines(server),
+  ];
+}
+
+/** The plugins that used the most time, so a plugin that makes the server laggy shows up here. */
+function pluginLines(server: MinecraftServer): string[] {
+  const top = server.plugins.profiler.top(5).filter((plugin) => plugin.totalMs >= 1);
+  if (top.length === 0) return [];
+  return [
+    `${colour.gray}Plugin time since start (event handlers and scheduled tasks):`,
+    ...top.map(
+      (plugin) =>
+        `${colour.gray}  ${colour.white}${plugin.owner}${colour.gray}: ${plugin.totalMs.toFixed(0)} ms in ${plugin.calls} calls, worst ${plugin.worstMs.toFixed(1)} ms (${plugin.worstWhat})`,
+    ),
   ];
 }
 

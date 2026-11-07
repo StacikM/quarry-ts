@@ -62,6 +62,7 @@ interface Settings {
   mapFolder?: string;
   protectWorld?: boolean;
   whitelist?: boolean;
+  checkForUpdates?: boolean;
 }
 
 /** A text seed (like in vanilla) becomes a number the same way every time. A number stays itself. */
@@ -124,6 +125,11 @@ function loadSettings(): Settings {
     if (whitelist !== true && whitelist !== false && whitelist !== "true" && whitelist !== "false") throw new Error("whitelist must be true or false");
     settings.whitelist = whitelist === true || whitelist === "true";
   }
+  const updates = env("QUARRY_CHECK_UPDATES") ?? file.checkForUpdates;
+  if (updates !== undefined) {
+    if (updates !== true && updates !== false && updates !== "true" && updates !== "false") throw new Error("checkForUpdates must be true or false");
+    settings.checkForUpdates = updates === true || updates === "true";
+  }
   return settings;
 }
 const settings = loadSettings();
@@ -141,6 +147,8 @@ export const config = {
   maxPlayers: settings.maxPlayers ?? 20,
   /** true forces protection on at startup; false/absent preserves whitelist.json. */
   whitelist: settings.whitelist,
+  /** Ask GitHub at startup (and every few hours) whether there is a newer version, and say so in the console. */
+  checkForUpdates: settings.checkForUpdates ?? true,
 
   /** How many chunks around the player we send (in each direction). */
   viewDistance: settings.viewDistance ?? 6,

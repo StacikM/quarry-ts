@@ -15,6 +15,9 @@ interface Registration {
 export class EventBus {
   private readonly registrations = new Map<EventName, Registration[]>();
 
+  /** Told how long each handler took (the plugin manager uses it to find slow plugins). */
+  constructor(private readonly onTiming?: (owner: string, event: string, ms: number) => void) {}
+
   on<E extends EventName>(owner: string, event: E, handler: Handler<E>): void {
     const list = this.registrations.get(event) ?? [];
     list.push({ owner, handler: handler as Handler<EventName> });
@@ -31,11 +34,13 @@ export class EventBus {
    */
   emit<E extends EventName>(event: E, payload: ServerEvents[E]): ServerEvents[E] {
     for (const { owner, handler } of this.registrations.get(event) ?? []) {
+      const startedAt = performance.now();
       try {
         handler(payload);
       } catch (err) {
         logger.error(`Plugin "${owner}" crashed handling ${event}: ${formatError(err)}`);
       }
+      this.onTiming?.(owner, event, performance.now() - startedAt);
     }
     return payload;
   }

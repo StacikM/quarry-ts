@@ -96,11 +96,8 @@ export class AnvilGenerator implements TerrainGenerator {
     const bits = Math.max(4, Math.ceil(Math.log2(palette.length)));
     const perLong = Math.floor(64 / bits);
     if (data.length < Math.ceil(4096 / perLong)) return null;
-    const mask = (1n << BigInt(bits)) - 1n;
     for (let i = 0; i < 4096; i++) {
-      const long = BigInt.asUintN(64, data[Math.floor(i / perLong)]);
-      const index = Number((long >> BigInt((i % perLong) * bits)) & mask);
-      states[i] = stateIds[index] ?? AIR;
+      states[i] = stateIds[packedValue(data, Math.floor(i / perLong), (i % perLong) * bits, bits)] ?? AIR;
     }
     return states;
   }
@@ -146,8 +143,7 @@ export class AnvilGenerator implements TerrainGenerator {
     const perLong = Math.floor(64 / bits);
     const cell = (index: number): number => {
       if (palette.length === 1 || !(data instanceof BigInt64Array)) return ids[0];
-      const long = BigInt.asUintN(64, data[Math.floor(index / perLong)] ?? 0n);
-      return ids[Number((long >> BigInt((index % perLong) * bits)) & ((1n << BigInt(bits)) - 1n))] ?? PLAINS;
+      return ids[packedValue(data, Math.floor(index / perLong), (index % perLong) * bits, bits)] ?? PLAINS;
     };
     for (let z = 0; z < 16; z++) {
       for (let x = 0; x < 16; x++) chunk.setBiome(x, z, cell((1 << 4) | ((z >> 2) << 2) | (x >> 2)));
@@ -229,6 +225,36 @@ export class AnvilGenerator implements TerrainGenerator {
 interface Region {
   fd: number;
   header: Buffer;
+}
+
+const LITTLE_ENDIAN = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+
+/**
+ * The `bits`-bit number that starts `offset` bits into the 64-bit number number `long` of `data` (values never
+ * cross from one 64-bit number to the next). Done with two 32-bit halves: BigInt arithmetic did this 8 times slower,
+ * and it runs for every block of every chunk that is read from the map.
+ */
+export function packedValue(data: BigInt64Array, long: number, offset: number, bits: number): number {
+  if (long >= data.length) return 0;
+  if (!LITTLE_ENDIAN) return Number((BigInt.asUintN(64, data[long]) >> BigInt(offset)) & ((1n << BigInt(bits)) - 1n));
+  const words = wordsOf(data);
+  const low = words[long * 2];
+  const high = words[long * 2 + 1];
+  const mask = (1 << bits) - 1;
+  if (offset + bits <= 32) return (low >>> offset) & mask;
+  if (offset >= 32) return (high >>> (offset - 32)) & mask;
+  return ((low >>> offset) | (high << (32 - offset))) & mask; // the value straddles the two halves
+}
+
+/** The same bytes seen as 32-bit halves (kept for the array that is read most recently). */
+let lastData: BigInt64Array | null = null;
+let lastWords: Uint32Array | null = null;
+function wordsOf(data: BigInt64Array): Uint32Array {
+  if (data !== lastData || lastWords === null) {
+    lastData = data;
+    lastWords = new Uint32Array(data.buffer, data.byteOffset, data.length * 2);
+  }
+  return lastWords;
 }
 
 function isOnlyAir(blockStates: Compound): boolean {

@@ -1,10 +1,11 @@
 import type { Player } from "./Player";
 import { GameMode } from "./GameMode";
 import type { PluginCommand } from "../plugins/types";
-import { config } from "../config";
+import { config, VERSION_NAME } from "../config";
 import { addOperator, removeOperator } from "./operators";
 import { colour, sendUsage, senderCommand } from "./commandSupport";
 import { itemId } from "../world/blockStates";
+import { describeUpdate, lastUpdateStatus, readBuildInfo } from "../versionCheck";
 
 /**
  * The commands that come with the server. They are registered in the same
@@ -25,6 +26,17 @@ const GAME_MODE_ALIASES: Record<string, GameMode> = {
 };
 
 export const coreCommands: PluginCommand[] = [
+  senderCommand({
+    name: "version",
+    description: "Which version of Quarry.ts this is, and whether GitHub has a newer one",
+    run(sender) {
+      const build = readBuildInfo();
+      sender.sendMessage(`Quarry.ts for Minecraft ${VERSION_NAME}${build ? `, build ${build.commit.slice(0, 7)} (${build.branch})` : ", build unknown"}`);
+      const status = lastUpdateStatus();
+      sender.sendMessage(status ? describeUpdate(status).text : config.checkForUpdates ? "The update check has not finished yet." : "Update checks are switched off (checkForUpdates in server.json).");
+    },
+  }),
+
   senderCommand({
     name: "help",
     description: "List all commands",

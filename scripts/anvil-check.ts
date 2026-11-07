@@ -76,7 +76,7 @@ function regionFile(chunks: Array<{ slot: number; data: Buffer; compression?: nu
 }
 
 async function main(): Promise<void> {
-  const { AnvilGenerator, readMapSpawn } = await import("../src/world/anvil/AnvilGenerator");
+  const { AnvilGenerator, packedValue, readMapSpawn } = await import("../src/world/anvil/AnvilGenerator");
   const { readNbt } = await import("../src/world/anvil/nbtReader");
   const { World } = await import("../src/world/World");
   const { stateOf } = await import("../src/world/blockStates");
@@ -238,6 +238,23 @@ async function main(): Promise<void> {
     const nested = Buffer.concat([Buffer.from([10, 0, 0, 9, 0, 1, 9, 0, 0, 0, 1]), Buffer.concat(Array.from({ length: 200 }, () => Buffer.from([9, 0, 0, 0, 1])))]);
     assert.throws(() => readNbt(nested));
     console.log("ok NBT reader: every tag type, modified UTF-8, truncated and nested input");
+  }
+
+  {
+    // The packed block numbers are read with 32-bit halves; they must give what slow BigInt arithmetic gives, for every width.
+    const data = new BigInt64Array(64);
+    for (let i = 0; i < data.length; i++) data[i] = BigInt.asIntN(64, (BigInt(Math.floor(Math.random() * 2 ** 32)) << 32n) | BigInt(Math.floor(Math.random() * 2 ** 32)));
+    for (let bits = 1; bits <= 14; bits++) {
+      const perLong = Math.floor(64 / bits);
+      for (let value = 0; value < perLong * 8; value++) {
+        const long = Math.floor(value / perLong);
+        const offset = (value % perLong) * bits;
+        const expected = Number((BigInt.asUintN(64, data[long]) >> BigInt(offset)) & ((1n << BigInt(bits)) - 1n));
+        assert.strictEqual(packedValue(data, long, offset, bits), expected, `${bits} bits, value ${value}`);
+      }
+    }
+    assert.strictEqual(packedValue(data, 64, 0, 4), 0, "past the end of the data: zero");
+    console.log("ok packed numbers: 32-bit halves match BigInt for 1 to 14 bits");
   }
 
   console.log("ALL ANVIL CHECKS PASS");

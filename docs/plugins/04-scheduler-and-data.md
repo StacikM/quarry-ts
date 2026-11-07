@@ -27,7 +27,7 @@ Resolve the online player again in a delayed callback. A timer can outlive the c
 
 ## Saving small amounts of data
 
-`api.loadData(fallback, validate)` reads `plugins-data/<plugin-name>.json`. Missing, unreadable, malformed, or validator-rejected data uses the fallback. TypeScript types alone do not validate JSON. Save plain JSON values, not `Player`, `Chunk`, `Map`, or server objects. `saveData()` writes a temporary file and renames it over the old file; it can throw on disk errors. This provides atomic file replacement, without a power-loss durability guarantee.
+`api.loadData(fallback, validate)` reads `plugins-data/<plugin-name>.json`. Missing, unreadable, malformed, or validator-rejected data uses the fallback. TypeScript types alone do not validate JSON. Save plain JSON values, not `Player`, `Chunk`, `Map`, or server objects. `saveData()` writes a temporary file and renames it over the old file; it can throw on disk errors. This provides atomic file replacement, without a power-loss durability guarantee. It also happens on the server's one thread and waits for the disk (an fsync, which can take tens or hundreds of milliseconds on a hosting panel's storage), so do not call it in code that runs often, such as every checkpoint or every movement: save when something important changes, or collect changes and save once every few seconds from `runRepeating`. The time a plugin spends saving is listed in `/perf`, and a single save over 25 ms prints a warning with the plugin's name.
 
 ```js
 module.exports = {

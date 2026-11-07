@@ -21,6 +21,7 @@ const variable = (name, description, env_variable, default_value, rules) => ({
 
 /** The same variables the server reads (see src/config.ts and src/game/createWorld.ts). */
 const variables = [
+  variable("Check for updates", "Ask GitHub when the server starts (and every few hours) whether a newer version exists, and say so in the console. Nothing is downloaded or changed.", "QUARRY_CHECK_UPDATES", "true", "required|string|in:true,false"),
   variable("Whitelist", "Only listed names and operators may join. Manage names with whitelist add/remove in the console.", "QUARRY_WHITELIST", "false", "required|string|in:true,false"),
   variable("World type", "natural (hills and trees), flat, or void (an empty world with a small platform, good for lobbies). Ignored when a map folder is set.", "QUARRY_GENERATOR", "natural", "required|string|in:natural,flat,void"),
   variable("Seed", "The seed of a natural world. Leave empty for a random one that is made on the first start and then kept. A word works too.", "QUARRY_SEED", "", "nullable|string|max:40"),
