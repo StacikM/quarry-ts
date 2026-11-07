@@ -55,7 +55,7 @@ async function main(): Promise<void> {
     assert(manager.getEnabledNames().includes(plugin.name), `enable example ${i + 1}`);
     return plugin;
   });
-  assert.equal(plugins.length, 8);
+  assert.equal(plugins.length, 9);
   runCommand(alice, "guidehello");
   assert.equal(messages.pop(), "Hello, Alice!");
   // The NPC example spawns its NPC, which answers clicks.
@@ -64,6 +64,14 @@ async function main(): Promise<void> {
   assert.equal(greeter.definition.equipment?.head?.item, "leather_helmet");
   assert.equal(greeter.definition.equipment?.head?.dyedColor, 0xcc2222);
   manager.events.emit("npcInteract", { player: alice, npc: greeter, click: "right", sneaking: false });
+  // The respawn example chooses where players come back, takes their items, and writes its own death message.
+  const comingBack = manager.events.emit("playerRespawn", { player: alice, position: { x: 0, y: 70, z: 0 }, keepInventory: true });
+  assert.equal(JSON.stringify(comingBack.position), JSON.stringify({ x: 100.5, y: 70, z: 100.5, yaw: 90, pitch: 0 })); // (the example ran in another VM context: compare the contents)
+  assert.equal(comingBack.keepInventory, false);
+  const died = manager.events.emit("playerDeath", { player: alice, killer: { username: "Bob" } as never, cause: "melee", message: "Alice was slain by Bob", cancelled: false });
+  assert.equal(died.message, "Bob got Alice!");
+  manager.events.emit("playerRespawned", { player: alice });
+  assert.equal(messages.pop(), "Welcome back!");
   assert.equal(messages.pop(), "Hello, Alice!");
   manager.events.emit("npcInteract", { player: alice, npc: greeter, click: "left", sneaking: false });
   assert.equal(messages.pop(), "Ouch!");
@@ -129,5 +137,5 @@ main().finally(() => {
   if (path.dirname(resolved) !== path.resolve(originalDirectory) || !path.basename(resolved).startsWith(".plugin-docs-check-")) {
     throw new Error("Refusing cleanup outside the plugin guide fixture");
   }
-  fs.rmSync(resolved, { recursive: true, force: true });
+  fs.rmSync(resolved, { recursive: true, force: true, maxRetries: 30, retryDelay: 250 });
 }).catch((error) => { console.error(error); process.exitCode = 1; });

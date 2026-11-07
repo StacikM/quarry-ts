@@ -2,7 +2,7 @@ import type { Plugin } from "../../types";
 import type { Player } from "../../../game/Player";
 import { selectionOf } from "../worldedit/session";
 import {
-  ALLOW_DENY_FLAGS, checkBuild, checkEntry, colorize, contains, explosionMayDestroy, GLOBAL_REGION, MAX_TEXT_LENGTH, readRegions, regionIdsAt,
+  ALLOW_DENY_FLAGS, checkBuild, checkEntry, colorize, contains, explosionMayDestroy, GLOBAL_REGION, pvpAllowed, MAX_TEXT_LENGTH, readRegions, regionIdsAt,
   TEXT_FLAGS, validPlayerName, validRegionId, type BuildAction, type Pos, type Region,
 } from "./regions";
 
@@ -11,8 +11,8 @@ import {
  * The command is /region (or /rg); only operators can use it. Boxes are chosen with the WorldEdit
  * selection (the wooden axe, //pos1 and //pos2). The rules are described in regions.ts.
  *
- * It looks at breaking and placing blocks (lighting TNT counts as breaking it), explosions, and walking in and out. It does not protect doors and the like,
- * and there is no fire on this server, so that flag does not exist. Damage between players is left to plugins (cancel playerDamage).
+ * It looks at breaking and placing blocks (lighting TNT counts as breaking it), explosions, damage between players, and walking in and out. It does not protect doors and the like,
+ * and there is no fire on this server, so that flag does not exist.
  */
 
 const HELP = [
@@ -194,6 +194,11 @@ export const worldGuardPlugin: Plugin = {
     // Explosions leave the blocks of protected regions alone.
     api.on("explosion", (event) => {
       event.blocks = event.blocks.filter((pos) => explosionMayDestroy(regions, pos));
+    });
+    // Players cannot hurt each other where a region says pvp deny (looked up at the player who is hit).
+    api.on("playerDamage", (event) => {
+      if (event.cancelled || !event.attacker || event.attacker === event.player) return;
+      if (!pvpAllowed(regions, blockOf(event.player))) event.cancelled = true;
     });
     api.on("blockBreak", guardBuild("block-break"));
     api.on("blockPlace", guardBuild("block-place"));

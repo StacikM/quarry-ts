@@ -1,5 +1,5 @@
 /**
- * Checks the interactive setup (scripts/setup.cjs), the settings file the server reads (server.json and the
+ * Checks the interactive setup (scripts/setup.cjs), the settings file the server reads (config.json and the
  * environment variables hosting panels use) and the random seed that every new server gets.
  * Run with:  npx tsx scripts/setup-check.ts
  *
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
     "y", // whitelist
     "ExampleOp, Alex", // operators
   ]);
-  const server = JSON.parse(fs.readFileSync(path.join(dir, "server.json"), "utf8"));
+  const server = JSON.parse(fs.readFileSync(path.join(dir, "config.json"), "utf8"));
   assert.deepStrictEqual(server, { port: 25570, motd: "My lobby", maxPlayers: 50, viewDistance: 8, generator: "void", protectWorld: true, whitelist: true });
   const velocity = JSON.parse(fs.readFileSync(path.join(dir, "velocity.json"), "utf8"));
   assert.strictEqual(velocity.enabled, true);
@@ -68,14 +68,14 @@ async function main(): Promise<void> {
   );
   assert.deepStrictEqual(loaded.config.velocity, { enabled: true, secret: velocity.secret });
   assert.deepStrictEqual(loaded.config.ops, ["ExampleOp", "Alex"]);
-  console.log("ok setup: a Velocity lobby is written to server.json, velocity.json and ops.json, and the server reads it back");
+  console.log("ok setup: a Velocity lobby is written to config.json, velocity.json and ops.json, and the server reads it back");
 
   // ---------------------------------------------------------------- mistakes are asked again; Enter takes the default
   dir = tempFolder();
   const retry = runSetup(dir, ["99999", "abc", "", "", "", "", "9", "1", "", "", "n", ""]);
   assert.ok(retry.includes("The port must be a whole number"), "a bad port is explained");
   assert.ok(retry.includes("The choice must be a whole number from 1 to 4"), "so is a bad menu choice");
-  const defaults = JSON.parse(fs.readFileSync(path.join(dir, "server.json"), "utf8"));
+  const defaults = JSON.parse(fs.readFileSync(path.join(dir, "config.json"), "utf8"));
   assert.strictEqual(defaults.generator, "natural");
   assert.strictEqual(defaults.protectWorld, false);
   assert.strictEqual(defaults.port, 25565, "Enter keeps the default");
@@ -86,34 +86,34 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------- defaults only, and ended input
   dir = tempFolder();
   runSetup(dir, [], ["--defaults"]);
-  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, "server.json"), "utf8")).port, 25565);
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, "config.json"), "utf8")).port, 25565);
   dir = tempFolder();
   spawnSync(process.execPath, [setupScript], { cwd: dir, input: "", encoding: "utf8" }); // input ends at once
-  assert.ok(fs.existsSync(path.join(dir, "server.json")), "when the input ends, the rest of the questions take their defaults");
+  assert.ok(fs.existsSync(path.join(dir, "config.json")), "when the input ends, the rest of the questions take their defaults");
   console.log("ok setup: --defaults and ended input work");
 
-  // ---------------------------------------------------------------- an existing server.json is not overwritten without asking
+  // ---------------------------------------------------------------- an existing config.json is not overwritten without asking
   dir = tempFolder();
-  fs.writeFileSync(path.join(dir, "server.json"), JSON.stringify({ port: 4000 }));
+  fs.writeFileSync(path.join(dir, "config.json"), JSON.stringify({ port: 4000 }));
   runSetup(dir, ["n"]);
-  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, "server.json"), "utf8")).port, 4000, "answering no leaves the file alone");
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, "config.json"), "utf8")).port, 4000, "answering no leaves the file alone");
   runSetup(dir, ["y"], ["--defaults"]); // defaults mode does not ask
-  console.log("ok setup: an existing server.json is kept unless you say so");
+  console.log("ok setup: an existing config.json is kept unless you say so");
 
   // ---------------------------------------------------------------- a map and a typed seed
   dir = tempFolder();
   runSetup(dir, ["", "", "", "", "4", "somewhere/map", "", "", ""]);
-  const map = JSON.parse(fs.readFileSync(path.join(dir, "server.json"), "utf8"));
+  const map = JSON.parse(fs.readFileSync(path.join(dir, "config.json"), "utf8"));
   assert.strictEqual(map.mapFolder, "somewhere/map");
   assert.strictEqual(map.protectWorld, true, "a map or void world defaults to a protected lobby");
   dir = tempFolder();
   runSetup(dir, ["", "", "", "", "1", "12345", "", "", ""]);
-  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, "server.json"), "utf8")).seed, 12345);
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, "config.json"), "utf8")).seed, 12345);
   console.log("ok setup: map folder and seed answers are saved");
 
   // ---------------------------------------------------------------- settings: files, environment, mistakes
   dir = tempFolder();
-  fs.writeFileSync(path.join(dir, "server.json"), JSON.stringify({ port: 4000, seed: "hello", maxPlayers: 5, protectWorld: true }));
+  fs.writeFileSync(path.join(dir, "config.json"), JSON.stringify({ port: 4000, seed: "hello", maxPlayers: 5, protectWorld: true }));
   loaded = loadConfig(dir);
   assert.strictEqual(loaded.config.port, 4000);
   assert.strictEqual(loaded.config.maxPlayers, 5);
@@ -135,11 +135,11 @@ async function main(): Promise<void> {
   assert.notStrictEqual(loadConfig(tempFolder(), { QUARRY_PORT: "70000" }).status, 0, "a port out of range stops the server");
   assert.notStrictEqual(loadConfig(tempFolder(), { QUARRY_GENERATOR: "mountains" }).status, 0, "so does an unknown generator");
   const broken = tempFolder();
-  fs.writeFileSync(path.join(broken, "server.json"), "{ not json");
+  fs.writeFileSync(path.join(broken, "config.json"), "{ not json");
   const brokenLoad = loadConfig(broken);
-  assert.notStrictEqual(brokenLoad.status, 0, "a damaged server.json is an error, not silently ignored");
-  assert.ok(brokenLoad.stderr.includes("server.json"), "which names the file");
-  console.log("ok settings: server.json, environment variables (SERVER_PORT too) and mistakes");
+  assert.notStrictEqual(brokenLoad.status, 0, "a damaged config.json is an error, not silently ignored");
+  assert.ok(brokenLoad.stderr.includes("config.json"), "which names the file");
+  console.log("ok settings: config.json, environment variables (SERVER_PORT too) and mistakes");
 
   // ---------------------------------------------------------------- a random seed per server, kept across restarts
   const seeds = new Set<number>();
@@ -153,10 +153,10 @@ async function main(): Promise<void> {
   }
   assert.ok(seeds.size > 1, "different servers get different seeds");
   const fixed = tempFolder();
-  fs.writeFileSync(path.join(fixed, "server.json"), JSON.stringify({ seed: 99 }));
-  assert.strictEqual(createSeed(fixed), "99", "a seed in server.json is used as it is");
+  fs.writeFileSync(path.join(fixed, "config.json"), JSON.stringify({ seed: 99 }));
+  assert.strictEqual(createSeed(fixed), "99", "a seed in config.json is used as it is");
   assert.ok(!fs.existsSync(path.join(fixed, "world", "seed.txt")), "and nothing random is made");
-  console.log("ok seed: random per server, remembered across restarts, server.json wins");
+  console.log("ok seed: random per server, remembered across restarts, config.json wins");
 
   console.log("ALL SETUP CHECKS PASS");
 }

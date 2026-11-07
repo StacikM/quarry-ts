@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { DEFAULT_SETTINGS, LEGACY_SETTINGS_FILE, SETTINGS_FILE, readSettingsObject } from "./settingsFile";
 import { GameMode } from "./game/GameMode";
 
 /**
@@ -45,12 +46,12 @@ function loadVelocity(): { enabled: boolean; secret: string } {
 }
 
 /**
- * Settings from server.json (written by the installer, or by hand). Every key is optional:
- *   { "port": 25565, "motd": "...", "maxPlayers": 20, "viewDistance": 6, "generator": "natural",
- *     "seed": 1234, "mapFolder": "maps/lobby", "protectWorld": true }
- * An environment variable with the same job (QUARRY_PORT, QUARRY_SEED, QUARRY_GENERATOR, QUARRY_MOTD,
- * QUARRY_MAX_PLAYERS, QUARRY_VIEW_DISTANCE, QUARRY_MAP, QUARRY_PROTECT_WORLD) wins over the file: that is how
- * hosting panels such as Pterodactyl configure the server. An empty variable counts as not set.
+ * Settings from config.json (see settingsFile.ts: the server creates it and keeps it complete), or from the older
+ * server.json while there is no config.json. Every key is optional. An environment variable with the same job
+ * (QUARRY_PORT, QUARRY_SEED, QUARRY_GENERATOR, QUARRY_MOTD, QUARRY_MAX_PLAYERS, QUARRY_VIEW_DISTANCE, QUARRY_MAP,
+ * QUARRY_PROTECT_WORLD, QUARRY_WHITELIST) wins over the file: that is how hosting panels such as Pterodactyl can
+ * configure the server. An empty variable counts as not set. The newer settings (pvp, respawn...) have no
+ * variable: they live only in config.json, so adding a setting never means changing the panel's egg.
  */
 interface Settings {
   requiredPlugins?: string[];
@@ -64,6 +65,8 @@ interface Settings {
   protectWorld?: boolean;
   whitelist?: boolean;
   checkForUpdates?: boolean;
+  pvp?: boolean;
+  respawn?: { immediate?: boolean; keepInventory?: boolean; deathMessages?: boolean };
 }
 
 /** A text seed (like in vanilla) becomes a number the same way every time. A number stays itself. */
@@ -75,15 +78,9 @@ export function seedFromText(text: string): number {
 }
 
 function loadSettings(): Settings {
-  let file: Record<string, unknown> = {};
-  try {
-    const data: unknown = JSON.parse(fs.readFileSync(path.resolve("server.json"), "utf8"));
-    if (data === null || typeof data !== "object" || Array.isArray(data)) throw new Error("it must be a JSON object");
-    file = data as Record<string, unknown>;
-  } catch (err) {
-    // A missing file is normal. A broken one must not be silently ignored.
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw new Error(`Cannot use server.json: ${(err as Error).message}`);
-  }
+  const raw = readSettingsObject(path.resolve(SETTINGS_FILE)) ?? readSettingsObject(path.resolve(LEGACY_SETTINGS_FILE)) ?? {};
+  // null means "not set": that is how config.json says "random seed" and "no map".
+  const file: Record<string, unknown> = Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== null));
 
   const env = (name: string): string | undefined => process.env[name]?.trim() || undefined;
   const integer = (what: string, value: unknown, min: number, max: number): number | undefined => {
@@ -99,10 +96,17 @@ function loadSettings(): Settings {
     if (typeof value !== "string") throw new Error(`${what} must be text`);
     return value;
   };
+  const flag = (what: string, value: unknown): boolean | undefined => {
+    if (value === undefined) return undefined;
+    if (value !== true && value !== false && value !== "true" && value !== "false") throw new Error(`${what} must be true or false`);
+    return value === true || value === "true";
+  };
 
   const settings: Settings = {};
   if (file.requiredPlugins !== undefined) {
-    if (!Array.isArray(file.requiredPlugins) || file.requiredPlugins.some(name => typeof name !== 'string' || !/^[a-zA-Z0-9_-]{1,32}$/.test(name))) throw new Error('requiredPlugins must be an array of plugin names');
+    if (!Array.isArray(file.requiredPlugins) || file.requiredPlugins.some((name) => typeof name !== "string" || !/^[a-zA-Z0-9_-]{1,32}$/.test(name))) {
+      throw new Error("requiredPlugins must be an array of plugin names");
+    }
     settings.requiredPlugins = file.requiredPlugins as string[];
   }
   settings.port = integer("the port", env("QUARRY_PORT") ?? env("SERVER_PORT") ?? file.port, 1, 65535);
@@ -120,20 +124,21 @@ function loadSettings(): Settings {
   const seed = env("QUARRY_SEED") ?? file.seed;
   if (seed !== undefined && seed !== "") settings.seed = typeof seed === "number" ? seed | 0 : seedFromText(String(seed));
 
-  const protect = env("QUARRY_PROTECT_WORLD") ?? file.protectWorld;
-  if (protect !== undefined) {
-    if (protect !== true && protect !== false && protect !== "true" && protect !== "false") throw new Error("protectWorld must be true or false");
-    settings.protectWorld = protect === true || protect === "true";
-  }
-  const whitelist = env("QUARRY_WHITELIST") ?? file.whitelist;
-  if (whitelist !== undefined) {
-    if (whitelist !== true && whitelist !== false && whitelist !== "true" && whitelist !== "false") throw new Error("whitelist must be true or false");
-    settings.whitelist = whitelist === true || whitelist === "true";
-  }
-  const updates = env("QUARRY_CHECK_UPDATES") ?? file.checkForUpdates;
-  if (updates !== undefined) {
-    if (updates !== true && updates !== false && updates !== "true" && updates !== "false") throw new Error("checkForUpdates must be true or false");
-    settings.checkForUpdates = updates === true || updates === "true";
+  settings.protectWorld = flag("protectWorld", env("QUARRY_PROTECT_WORLD") ?? file.protectWorld);
+  settings.whitelist = flag("whitelist", env("QUARRY_WHITELIST") ?? file.whitelist);
+  settings.checkForUpdates = flag("checkForUpdates", file.checkForUpdates);
+  settings.pvp = flag("pvp", file.pvp);
+
+  if (file.respawn !== undefined) {
+    if (typeof file.respawn !== "object" || Array.isArray(file.respawn)) throw new Error("respawn must be an object with immediate, keepInventory and deathMessages");
+    const respawn = file.respawn as Record<string, unknown>;
+    // Only the settings that are really there: a missing one must not erase its default.
+    const chosen: NonNullable<Settings["respawn"]> = {};
+    for (const name of ["immediate", "keepInventory", "deathMessages"] as const) {
+      const value = flag(`respawn.${name}`, respawn[name] ?? undefined);
+      if (value !== undefined) chosen[name] = value;
+    }
+    settings.respawn = chosen;
   }
   return settings;
 }
@@ -145,19 +150,28 @@ const settings = loadSettings();
 export const config = {
   requiredPlugins: settings.requiredPlugins ?? [],
   host: "0.0.0.0",
-  /** The port to listen on (server.json, or the environment variable QUARRY_PORT). */
-  port: settings.port ?? 25565,
+  /** The port to listen on (config.json, or the environment variable QUARRY_PORT or the panel's SERVER_PORT). */
+  port: settings.port ?? DEFAULT_SETTINGS.port,
 
   /** Text shown under the server name in the multiplayer list. */
-  motd: settings.motd ?? "A Minecraft server written in TypeScript",
-  maxPlayers: settings.maxPlayers ?? 20,
+  motd: settings.motd ?? DEFAULT_SETTINGS.motd,
+  maxPlayers: settings.maxPlayers ?? DEFAULT_SETTINGS.maxPlayers,
   /** true forces protection on at startup; false/absent preserves whitelist.json. */
-  whitelist: settings.whitelist,
+  whitelist: settings.whitelist ?? DEFAULT_SETTINGS.whitelist,
   /** Ask GitHub at startup (and every few hours) whether there is a newer version, and say so in the console. */
-  checkForUpdates: settings.checkForUpdates ?? true,
+  checkForUpdates: settings.checkForUpdates ?? DEFAULT_SETTINGS.checkForUpdates,
+
+  /** Whether players can hurt each other. With false, damage from players is cancelled (a plugin may still allow it, for duels). */
+  pvp: settings.pvp ?? DEFAULT_SETTINGS.pvp,
+
+  /**
+   * What happens when a player dies. immediate: skip the death screen. keepInventory: keep the items (nothing is
+   * dropped on this server). deathMessages: tell everybody how the player died.
+   */
+  respawn: { ...DEFAULT_SETTINGS.respawn, ...settings.respawn } as { immediate: boolean; keepInventory: boolean; deathMessages: boolean },
 
   /** How many chunks around the player we send (in each direction). */
-  viewDistance: settings.viewDistance ?? 6,
+  viewDistance: settings.viewDistance ?? DEFAULT_SETTINGS.viewDistance,
 
   /**
    * Chunks are sent a few per tick instead of all at once, so teleporting or
@@ -195,7 +209,7 @@ export const config = {
   autosaveIntervalMs: 60_000,
 
   /**
-   * Same seed => same world. Left out of server.json, a random seed is made the first time the server
+   * Same seed => same world. Left out of config.json, a random seed is made the first time the server
    * starts and kept in world/seed.txt, so every server gets its own world (see game/createWorld.ts).
    */
   seed: settings.seed ?? (null as number | null),
@@ -204,13 +218,13 @@ export const config = {
    * "flat" or "natural". If the natural terrain code is missing, the server
    * falls back to flat (see game/createWorld.ts).
    */
-  generator: settings.generator ?? ("natural" as "flat" | "natural" | "void"),
+  generator: settings.generator ?? (DEFAULT_SETTINGS.generator as "flat" | "natural" | "void"),
 
   /**
    * Lobby behaviour. With protectWorld on, only operators can build or break blocks
    * and everybody else joins in adventure mode (see plugins/builtin/lobby.ts).
    */
-  lobby: { protectWorld: settings.protectWorld ?? false },
+  lobby: { protectWorld: settings.protectWorld ?? DEFAULT_SETTINGS.protectWorld },
 
   /**
    * An existing Minecraft world to show as this server's map: the folder that holds its "region" folder

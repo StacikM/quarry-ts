@@ -20,10 +20,24 @@ const VOID_Y = -20;
 /** Positions further out than this are nonsense (the world border is 29,999,984). */
 const MAX_COORDINATE = 30_000_000;
 
+/** What a dead player may still send: keep-alives, chat, settings, and "Respawn". Everything else (moving, digging, clicking...) is ignored. */
+const ALLOWED_WHEN_DEAD = new Set<number>([
+  PlayIn.TeleportConfirm,
+  PlayIn.ChatCommand,
+  PlayIn.ChatCommandSigned,
+  PlayIn.ChatMessage,
+  PlayIn.ChunkBatchReceived,
+  PlayIn.ClientCommand,
+  PlayIn.ClientInformation,
+  PlayIn.KeepAlive,
+  PlayIn.PluginMessage,
+]);
+
 /** Handles every packet a logged-in player sends us. */
 export function handlePlay(conn: Connection, packetId: number, reader: PacketReader): void {
   const player = conn.player;
   if (!player) return;
+  if (player.dead && !ALLOWED_WHEN_DEAD.has(packetId)) return;
 
   switch (packetId) {
     case PlayIn.ContainerClick: {
@@ -75,6 +89,11 @@ export function handlePlay(conn: Connection, packetId: number, reader: PacketRea
     case PlayIn.ChatMessage:
       // (a timestamp, a salt and a signature follow; an offline-mode server does not check them)
       handleChat(player, reader.readString());
+      break;
+
+    case PlayIn.ClientCommand:
+      // 0 = "Respawn" on the death screen, 1 = "show statistics" (nothing to do).
+      if (reader.readVarInt() === 0) player.respawn();
       break;
 
     case PlayIn.ChatCommand:

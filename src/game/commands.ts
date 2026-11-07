@@ -27,13 +27,29 @@ const GAME_MODE_ALIASES: Record<string, GameMode> = {
 
 export const coreCommands: PluginCommand[] = [
   senderCommand({
+    name: "kill",
+    description: "Kill yourself, or another player",
+    usage: "/kill [player]",
+    opOnly: true,
+    run(sender, args) {
+      const name = args[0] ?? (sender.isConsole ? undefined : sender.name);
+      const target = name === undefined ? undefined : sender.server.getPlayerByName(name);
+      if (!target) {
+        sender.sendMessage(name === undefined ? "Usage: kill <player>" : `No player called ${name} is online.`, "red");
+        return;
+      }
+      if (!target.kill("kill")) sender.sendMessage(`${target.username} could not be killed (already dead, or a plugin stopped it).`, "red");
+    },
+  }),
+
+  senderCommand({
     name: "version",
     description: "Which version of Quarry.ts this is, and whether GitHub has a newer one",
     run(sender) {
       const build = readBuildInfo();
       sender.sendMessage(`Quarry.ts for Minecraft ${VERSION_NAME}${build ? `, build ${build.commit.slice(0, 7)} (${build.branch})` : ", build unknown"}`);
       const status = lastUpdateStatus();
-      sender.sendMessage(status ? describeUpdate(status).text : config.checkForUpdates ? "The update check has not finished yet." : "Update checks are switched off (checkForUpdates in server.json).");
+      sender.sendMessage(status ? describeUpdate(status).text : config.checkForUpdates ? "The update check has not finished yet." : "Update checks are switched off (checkForUpdates in config.json).");
     },
   }),
 

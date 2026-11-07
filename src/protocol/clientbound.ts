@@ -133,9 +133,16 @@ export function keepAlive(id: number): PacketWriter {
   return new PacketWriter(PlayOut.KeepAlive).writeLong(BigInt(id));
 }
 
-export function joinGame(entityId: number, gameMode: GameMode, maxPlayers: number, viewDistance: number): PacketWriter {
+/** The registry number of the overworld's dimension type. */
+function overworldDimension(): number {
   const dimension = REGISTRY_KEYS["minecraft:dimension_type"].indexOf(OVERWORLD);
   if (dimension < 0) throw new Error("The dimension list has no overworld");
+  return dimension;
+}
+
+/** `respawnScreen` false means players who die come back at once, without the death screen. */
+export function joinGame(entityId: number, gameMode: GameMode, maxPlayers: number, viewDistance: number, respawnScreen = true): PacketWriter {
+  const dimension = overworldDimension();
   return new PacketWriter(PlayOut.Login)
     .writeInt(entityId)
     .writeBoolean(false) // hardcore
@@ -145,7 +152,7 @@ export function joinGame(entityId: number, gameMode: GameMode, maxPlayers: numbe
     .writeVarInt(viewDistance)
     .writeVarInt(viewDistance) // simulation distance
     .writeBoolean(false) // reduced debug info (F3 screen)
-    .writeBoolean(true) // show the respawn screen when dying
+    .writeBoolean(respawnScreen) // show the respawn screen when dying
     .writeBoolean(false) // limited crafting
     .writeVarInt(dimension) // which dimension type this world uses
     .writeString(OVERWORLD) // world name
@@ -158,6 +165,35 @@ export function joinGame(entityId: number, gameMode: GameMode, maxPlayers: numbe
     .writeVarInt(0) // portal cooldown
     .writeVarInt(SEA_LEVEL)
     .writeBoolean(false); // enforces secure chat
+}
+
+/** The player died: their client shows the death screen with this text under the title. */
+export function deathCombatEvent(entityId: number, message: string): PacketWriter {
+  return new PacketWriter(PlayOut.DeathCombatEvent).writeVarInt(entityId).writeTextComponent({ text: message });
+}
+
+/**
+ * Starts a new life for the client in the same world: it forgets its inventory, effects and speed, so the server has to
+ * send those again afterwards. The tail is the same description of the world that joinGame sends.
+ */
+export function respawn(gameMode: GameMode): PacketWriter {
+  return new PacketWriter(PlayOut.Respawn)
+    .writeVarInt(overworldDimension())
+    .writeString(OVERWORLD)
+    .writeLong(0n) // hashed seed
+    .writeByte(gameMode)
+    .writeUnsignedByte(0xff) // previous game mode: none
+    .writeBoolean(false) // debug world
+    .writeBoolean(false) // superflat world
+    .writeBoolean(false) // no death location
+    .writeVarInt(0) // portal cooldown
+    .writeVarInt(SEA_LEVEL)
+    .writeUnsignedByte(0); // keep nothing of the old life (1 = attributes, 2 = entity data)
+}
+
+/** An entity event: 3 is the death animation (everybody else sees the player fall over). */
+export function entityEvent(entityId: number, status: number): PacketWriter {
+  return new PacketWriter(PlayOut.EntityStatus).writeInt(entityId).writeByte(status);
 }
 
 /** Game Event reasons we use. */

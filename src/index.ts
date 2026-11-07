@@ -4,6 +4,7 @@ import { runConsoleCommand } from "./consoleCommands";
 import { logger } from "./util/logger";
 import { config } from "./config";
 import { startUpdateChecks } from "./versionCheck";
+import { ensureSettingsFile } from "./settingsFile";
 
 /**
  * Entry point. Starts the server and lets you type in the console:
@@ -12,6 +13,7 @@ import { startUpdateChecks } from "./versionCheck";
  * Everything else (say, op, deop, ops, list, save, help) is in consoleCommands.ts.
  */
 logger.info("Quarry.ts: Minecraft 1.21.11 server");
+ensureSettingsFile(); // writes config.json the first time, and adds the settings a newer version introduced
 const server = new MinecraftServer();
 server.start();
 if (config.checkForUpdates) startUpdateChecks(); // in the background: says in the console if GitHub has a newer version

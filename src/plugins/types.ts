@@ -100,7 +100,20 @@ export interface ServerEvents {
   /** Main hand slot is 0-8; offhand slot is 45. Fires for air and block use. */
   itemUse: { player: Player; hand: 0 | 1; slot: number; item: string | undefined; cancelled: boolean };
   playerDamage: { player: Player; attacker?: Player; damage: number; cause: string; cancelled: boolean };
-  playerDeath: { player: Player; killer?: Player; cancelled: boolean };
+  /**
+   * A player is about to die (their health would reach 0). Cancel to keep them alive (a duel plugin does this to end the
+   * match instead). `cause` is "melee", "arrow", "explosion", "void", "kill" or what a plugin gave to combat.damage();
+   * `message` is the sentence everybody reads, which a plugin can change, or set to null to say nothing.
+   */
+  playerDeath: { player: Player; killer?: Player; cause: string; message: string | null; cancelled: boolean };
+  /**
+   * A dead player is coming back (they pressed "Respawn", or something called player.respawn()). Change `position` to
+   * choose where they appear (the world spawn by default) and `keepInventory` to choose whether they keep their items
+   * (config.json decides by default). It cannot be cancelled: the player has to come back somewhere.
+   */
+  playerRespawn: { player: Player; position: { x: number; y: number; z: number; yaw?: number; pitch?: number }; keepInventory: boolean };
+  /** The respawn is finished: the player is alive, at their new place, and everybody has been told. A good moment to hand out starting items. */
+  playerRespawned: { player: Player };
   playerAttack: { player: Player; targetEntityId: number; cancelled: boolean };
   playerJoin: { player: Player };
   playerQuit: { player: Player };

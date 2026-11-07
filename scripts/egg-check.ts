@@ -37,10 +37,13 @@ for (const variable of egg.variables) {
   // The default must pass the rule the panel will check it with.
   const rules: string[] = variable.rules.split("|");
   if (rules.includes("required")) assert.notStrictEqual(variable.default_value, "", `${variable.env_variable} is required, so it needs a default`);
+  // The settings live in config.json: a variable is an optional override, so it is empty (nullable) unless it must be filled in.
+  const optional = rules.includes("nullable") && variable.default_value === "";
   const allowed = rules.find((rule) => rule.startsWith("in:"))?.slice(3).split(",");
-  if (allowed) assert.ok(allowed.includes(variable.default_value), `the default of ${variable.env_variable} is one of its allowed values`);
+  if (allowed && !optional) assert.ok(allowed.includes(variable.default_value), `the default of ${variable.env_variable} is one of its allowed values`);
   const between = rules.find((rule) => rule.startsWith("between:"))?.slice(8).split(",").map(Number);
-  if (between) assert.ok(Number(variable.default_value) >= between[0] && Number(variable.default_value) <= between[1], `the default of ${variable.env_variable} is in range`);
+  if (between && !optional) assert.ok(Number(variable.default_value) >= between[0] && Number(variable.default_value) <= between[1], `the default of ${variable.env_variable} is in range`);
+  if (variable.env_variable.startsWith("QUARRY_")) assert.ok(optional, `${variable.env_variable} is empty by default, so that config.json is used unless the panel overrides it`);
 }
 const names = new Set<string>(egg.variables.map((variable: { env_variable: string }) => variable.env_variable));
 assert.strictEqual(names.size, egg.variables.length, "no variable is listed twice");

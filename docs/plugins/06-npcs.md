@@ -93,4 +93,4 @@ To bring NPCs over from FancyNpcs on Paper, see **Moving your FancyNpcs NPCs** i
 
 ## The whitelist
 
-`/whitelist` is for operators and the console; see [Commands](03-commands.md). When it is on, only the listed names and operators can join, and a change kicks online players who are no longer allowed. Bans are checked first. The list is kept in `whitelist.json` (separate from plugin data) and turned on at start with `"whitelist": true` in `server.json` or `QUARRY_WHITELIST=true`. A damaged `whitelist.json` locks everyone but operators out instead of letting everyone in.
+`/whitelist` is for operators and the console; see [Commands](03-commands.md). When it is on, only the listed names and operators can join, and a change kicks online players who are no longer allowed. Bans are checked first. The list is kept in `whitelist.json` (separate from plugin data) and turned on at start with `"whitelist": true` in `config.json` or `QUARRY_WHITELIST=true`. A damaged `whitelist.json` locks everyone but operators out instead of letting everyone in.

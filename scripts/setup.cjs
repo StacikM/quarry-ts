@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Interactive setup for a new server: asks a few questions and writes server.json,
+ * Interactive setup for a new server: asks a few questions and writes config.json,
  * velocity.json (if you use a Velocity proxy) and ops.json in the current folder.
  * Run by install.sh / install.bat, or on its own:  node scripts/setup.cjs
  *
@@ -26,7 +26,7 @@ function buildFiles(answers) {
   if (answers.seed !== undefined) server.seed = answers.seed;
   if (answers.mapFolder) server.mapFolder = answers.mapFolder;
 
-  const files = { "server.json": server };
+  const files = { "config.json": server };
   if (answers.velocitySecret) files["velocity.json"] = { enabled: true, secret: answers.velocitySecret };
   if (answers.ops.length > 0) files["ops.json"] = answers.ops;
   return files;
@@ -129,8 +129,8 @@ async function main() {
   const asker = createAsker(process.stdin, process.stdout);
 
   say("Quarry.ts setup. Press Enter to accept the answer in [brackets].");
-  if (fs.existsSync("server.json") && !defaultsOnly) {
-    const overwrite = await asker.ask("server.json already exists. Replace it with new answers?", "n", yesNo);
+  if (fs.existsSync("config.json") && !defaultsOnly) {
+    const overwrite = await asker.ask("config.json already exists. Replace it with new answers?", "n", yesNo);
     if (!overwrite) {
       say("Leaving your files as they are.");
       asker.close();
@@ -158,7 +158,7 @@ async function main() {
   }
   say("\nDone. Start the server with:  npm start");
   if (answers.generator === "natural" && answers.seed === undefined) say("(The random seed is made when the server first starts and kept in world/seed.txt.)");
-  say("To change a setting later, edit server.json, or run this setup again.");
+  say("To change a setting later, edit config.json, or run this setup again.");
 }
 
 if (require.main === module) {

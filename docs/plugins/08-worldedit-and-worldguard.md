@@ -48,13 +48,14 @@ Flags:
 | `build` | `allow` / `deny` | Breaking and placing. Not set: only owners and members. `allow`: everybody. `deny`: nobody (operators with bypass still can) |
 | `block-break`, `block-place` | `allow` / `deny` | Like `build`, for one action; they win over `build` |
 | `tnt` | `allow` / `deny` | Whether explosions destroy blocks there. Not set: a region is protected (and the global region is not). Lighting TNT counts as breaking the block, so `build` applies to that too |
+| `pvp` | `deny` | Players cannot hurt each other inside the region (the place of the player who is hit counts). Not set or `allow`: they can, if `config.json` has `"pvp": true` |
 | `entry` | `deny` | Only owners and members may walk in (others are put back where they were) |
 | `greeting`, `farewell` | text | Sent to a player who walks in or out. `&a` colour codes work |
 | `deny-message` | text | What a refused builder is told instead of "Hey! Sorry, but you can't build here." |
 
 The region named `__global__` covers the whole world: `/rg flag __global__ build deny` makes the world read-only for everybody but operators. Regions are saved in `plugins-data/worldguard.json`.
 
-It looks at breaking blocks, placing blocks and walking. It does not protect doors or other uses of a block, and there is no fire or mob spawning on this server, so those flags do not exist. Fighting between players exists in the core (melee and bows) but has no region flag: plugins decide where damage is allowed by cancelling `playerDamage`. WorldEdit edits are not checked against regions (only operators can edit).
+It looks at breaking blocks, placing blocks and walking. It does not protect doors or other uses of a block, and there is no fire or mob spawning on this server, so those flags do not exist. WorldEdit edits are not checked against regions (only operators can edit).
 
 ## For plugin authors
 

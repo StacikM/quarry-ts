@@ -27,7 +27,7 @@ module.exports = {
 };
 ```
 
-The bundled spawn-protection plugin already protects 16 blocks. A second plugin can add protection; it cannot override an earlier cancellation simply by returning from its own handler. For a whole lobby, set `protectWorld` in `server.json` instead: only operators can build and everybody else joins in adventure mode.
+The bundled spawn-protection plugin already protects 16 blocks. A second plugin can add protection; it cannot override an earlier cancellation simply by returning from its own handler. For a whole lobby, set `protectWorld` in `config.json` instead: only operators can build and everybody else joins in adventure mode.
 
 ## Rank-prefixed chat
 

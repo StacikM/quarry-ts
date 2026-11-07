@@ -403,7 +403,7 @@ export class MinecraftServer {
     logger.info(`${player.username} joined from ${conn.address} (uuid ${player.uuid})`);
 
     const { x, y, z } = spawn;
-    player.send(joinGame(player.entityId, player.gameMode, config.maxPlayers, viewRadius));
+    player.send(joinGame(player.entityId, player.gameMode, config.maxPlayers, viewRadius, !config.respawn.immediate));
     player.send(playerAbilities(player.gameMode));
     player.syncPermissionLevel();
     player.send(commandTree(this.plugins.commands.all().map((command) => command.name)));

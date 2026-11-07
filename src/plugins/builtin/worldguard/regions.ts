@@ -13,6 +13,7 @@
  *       not set  -> protected, in a real region (the global region has nothing protected until you set deny)
  *       allow    -> they may
  *       deny     -> they may not
+ *   pvp            deny -> players cannot hurt each other there (allow, or not set: they can, if config.json has pvp on)
  *   entry          deny -> only owners and members may walk into the region
  *   greeting / farewell / deny-message   text ("&a" colour codes work)
  *
@@ -40,7 +41,7 @@ export interface Region {
 
 export const GLOBAL_REGION = "__global__";
 
-export const ALLOW_DENY_FLAGS = ["build", "block-break", "block-place", "entry", "tnt"] as const;
+export const ALLOW_DENY_FLAGS = ["build", "block-break", "block-place", "entry", "tnt", "pvp"] as const;
 export const TEXT_FLAGS = ["greeting", "farewell", "deny-message"] as const;
 
 export const DEFAULT_DENY_MESSAGE = "Hey! Sorry, but you can't build here.";
@@ -91,6 +92,11 @@ export function explosionMayDestroy(regions: Iterable<Region>, pos: Pos): boolea
     const rule = region.flags.tnt;
     return rule === "allow" || (rule === undefined && region.id === GLOBAL_REGION);
   });
+}
+
+/** Whether players may hurt each other at this position: not when a deciding region says pvp deny. */
+export function pvpAllowed(regions: Iterable<Region>, pos: Pos): boolean {
+  return decisiveRegions(regions, pos).every((region) => region.flags.pvp !== "deny");
 }
 
 /** Whether this player may walk into this position, going by the entry flag of the regions there. */

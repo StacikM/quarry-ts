@@ -94,7 +94,7 @@ checkIds("play", "toClient", ids.PlayOut, {
   HeadRotation: "entity_head_rotation", SetCenterChunk: "update_view_position", SetDefaultSpawnPosition: "spawn_position", SetTime: "update_time",
   SystemChat: "system_chat", EntityPositionSync: "sync_entity_position", UnloadChunk: "unload_chunk",
   ContainerContent: "window_items", ContainerSetSlot: "set_slot", SetEquipment: "entity_equipment", SetEntityData: "entity_metadata", SetHeldSlot: "held_item_slot",
-  SetPlayerInventory: "set_player_inventory", SetPlayerTeam: "teams", EntityStatus: "entity_status", Explosion: "explosion",
+  SetPlayerInventory: "set_player_inventory", SetPlayerTeam: "teams", EntityStatus: "entity_status", Explosion: "explosion", Respawn: "respawn", DeathCombatEvent: "death_combat_event",
 });
 assert.equal(data.entitiesByName.player.id, out.PLAYER_ENTITY_TYPE, "the player entity type number");
 assert.equal(data.entitiesByName.armor_stand.id, out.ARMOR_STAND_ENTITY_TYPE, "the armor stand entity type number");
@@ -296,6 +296,19 @@ const npcUuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
     { index: out.TNT_BLOCK_STATE_FIELD, type: "blockState", value: 2140 },
   ]), "entity_metadata");
   assert.deepEqual(tnt.metadata.map((entry: any) => [entry.key, entry.type, entry.value]), [[8, "int", 80], [9, "block_state", 2140]]);
+
+  const dead = decoded("play", out.deathCombatEvent(41, "Bob was slain by Alice"), "death_combat_event");
+  assert.equal(dead.playerId, 41);
+  assert.deepEqual(simplify(dead.message), { text: "Bob was slain by Alice" }, "the text of the death screen");
+  const alive = decoded("play", out.respawn(1), "respawn");
+  assert.equal(alive.worldState.name, "minecraft:overworld");
+  assert.equal(alive.worldState.gamemode, "creative");
+  assert.equal(alive.worldState.death, undefined, "no death location");
+  assert.equal(alive.copyMetadata, 0, "a respawn keeps nothing of the old life");
+  const fallen = decoded("play", out.entityEvent(41, 3), "entity_status");
+  assert.deepEqual([fallen.entityId, fallen.entityStatus], [41, 3], "status 3 is the death animation");
+  assert.equal(decoded("play", out.joinGame(5, 0, 20, 6), "login").enableRespawnScreen, true, "the death screen is shown by default");
+  assert.equal(decoded("play", out.joinGame(5, 0, 20, 6, false), "login").enableRespawnScreen, false, "and can be turned off");
 
   const blast = decoded("play", out.explosion(10.5, 64, -3.5, 4, 37, { x: 0.5, y: 0.25, z: -1 }), "explosion");
   assert.deepEqual([blast.center.x, blast.center.y, blast.center.z, blast.radius, blast.blockCount], [10.5, 64, -3.5, 4, 37]);

@@ -16,3 +16,5 @@
 
 # Folders the checks make in the project root and normally delete again
 /.plugin-docs-check-*/
+/config.json
+/server.json.old

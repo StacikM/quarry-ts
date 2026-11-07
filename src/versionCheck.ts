@@ -9,7 +9,7 @@ import { logger } from "./util/logger";
  * (npm run build), or else read from the .git folder next to the program. GitHub is asked for the newest
  * commit of the same branch (one request to its public API, no account needed, nothing about you is sent
  * except the address of your server, which any web request carries). It can be switched off with
- * "checkForUpdates": false in server.json, or the environment variable QUARRY_CHECK_UPDATES=false.
+ * "checkForUpdates": false in config.json.
  */
 
 /** The repository the updates come from. */

@@ -1,4 +1,5 @@
 import type { Player } from './Player';
+import { config } from '../config';
 import { itemId, itemName } from '../world/blockStates';
 import { sameItem, cloneStack } from './Inventory';
 import { EFFECT_IDS, healthPacket } from '../protocol/inventoryPackets';
@@ -8,7 +9,24 @@ import type { ItemStack } from './Inventory';
 
 export interface CombatEffect { amplifier: number; expiresAt: number }
 export interface DamageEvent { player: Player; attacker?: Player; damage: number; cause: string; cancelled: boolean }
-export interface DeathEvent { player: Player; killer?: Player; cancelled: boolean }
+/**
+ * A player is about to die. `cause` is "melee", "arrow", "explosion", "void", "kill" or whatever a plugin passed to
+ * damage(). `message` is what everybody reads ("Alex was slain by Sam"); a plugin can change it, or set null to say nothing.
+ */
+export interface DeathEvent { player: Player; killer?: Player; cause: string; message: string | null; cancelled: boolean }
+
+/** The sentence that says how somebody died. */
+export function deathMessage(victim: Player, killer: Player | undefined, cause: string): string {
+  const name = victim.username;
+  if (killer && killer !== victim) {
+    if (cause === 'arrow') return `${name} was shot by ${killer.username}`;
+    if (cause === 'explosion') return `${name} was blown up by ${killer.username}`;
+    return `${name} was slain by ${killer.username}`;
+  }
+  if (cause === 'explosion') return `${name} blew up`;
+  if (cause === 'void') return `${name} fell out of the world`;
+  return `${name} died`;
+}
 export function enchantment(stack: ItemStack | null, name: string): number { return stack?.enchantments?.[name] ?? stack?.enchantments?.[`minecraft:${name}`] ?? 0; }
 /** Authoritative melee state. Times are milliseconds from an injectable clock. */
 export class Combat {
@@ -151,11 +169,13 @@ export class Combat {
     damage *= 1 - Math.min(20, armor.protection) * 0.04;
     damage *= Math.max(0, 1 - this.effectLevel('resistance') * 0.2);
     if (this.now() - this.lastDamage < 500) { if (damage <= this.previousDamage) return false; damage -= this.previousDamage; }
-    const event: DamageEvent = { player: this.player, attacker, damage, cause, cancelled: false };
+    // With pvp off, damage from another player is cancelled unless a plugin (a duel, say) un-cancels it.
+    const event: DamageEvent = { player: this.player, attacker, damage, cause, cancelled: !config.pvp && attacker !== undefined && attacker !== this.player };
     this.player.server.plugins.events.emit('playerDamage', event);
     if (event.cancelled || !Number.isFinite(event.damage) || event.damage <= 0) return false;
+    let death: DeathEvent | null = null;
     if (this.health - Math.max(0, event.damage - this.absorption) <= 0) {
-      const death: DeathEvent = { player: this.player, killer: attacker, cancelled: false };
+      death = { player: this.player, killer: attacker, cause, message: deathMessage(this.player, attacker, cause), cancelled: false };
       this.player.server.plugins.events.emit('playerDeath', death);
       if (death.cancelled) return false;
     }
@@ -163,6 +183,20 @@ export class Combat {
     const absorbed = Math.min(this.absorption, event.damage); this.absorption -= absorbed;
     this.health = Math.max(0, this.health - (event.damage - absorbed)); this.sync();
     this.player.server.broadcast(new PacketWriter(0x29).writeVarInt(this.player.entityId).writeFloat(this.player.yaw));
+    if (death) this.player.die(death);
+    return true;
+  }
+
+  /** Kills the player whatever their armor or game mode (a plugin may still cancel the playerDeath event). Returns false if they are already dead. */
+  kill(cause = 'kill'): boolean {
+    if (this.health <= 0) return false;
+    const death: DeathEvent = { player: this.player, cause, message: deathMessage(this.player, undefined, cause), cancelled: false };
+    this.player.server.plugins.events.emit('playerDeath', death);
+    if (death.cancelled) return false;
+    this.health = 0;
+    this.absorption = 0;
+    this.sync();
+    this.player.die(death);
     return true;
   }
   private effectLevel(name: string): number { const effect = this.effects.get(name); return effect && effect.expiresAt > this.now() ? effect.amplifier + 1 : 0; }

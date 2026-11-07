@@ -28,18 +28,50 @@ The easy way is the interactive installer. It checks that Node.js 24 or newer is
 - **Windows:** double-click `install.bat`
 - **Linux and macOS:** `bash install.sh`
 
-The answers go into `server.json` (plus `velocity.json` and `ops.json` if you used them). Run `node scripts/setup.cjs` to answer the questions again. You can also edit the file by hand:
+The answers go into `config.json` (plus `velocity.json` and `ops.json` if you used them). Run `node scripts/setup.cjs` to answer the questions again.
+
+### config.json
+
+Every setting of the server is in one file, `config.json`, in the folder the server runs in. **The server creates it the first time it starts**, with every setting at its default, and **when an update adds a setting it adds it to the file with its default value on the next start** (it says so in the console; the values you wrote are never changed). So on a hosting panel you only edit this file in the file manager and restart. Nothing about a new setting needs a change in the panel's egg. (Older versions wrote `server.json`: if there is no `config.json`, its settings are moved into one and the old file is kept as `server.json.old`.)
 
 ```json
-{ "port": 25565, "motd": "My lobby", "maxPlayers": 50, "viewDistance": 6,
-  "generator": "void", "seed": 1234, "mapFolder": "maps/lobby", "protectWorld": true }
+{
+  "port": 25565,
+  "motd": "A Minecraft server written in TypeScript",
+  "maxPlayers": 20,
+  "viewDistance": 6,
+  "generator": "natural",
+  "seed": null,
+  "mapFolder": null,
+  "protectWorld": false,
+  "whitelist": false,
+  "pvp": true,
+  "respawn": { "immediate": false, "keepInventory": true, "deathMessages": true },
+  "checkForUpdates": true,
+  "requiredPlugins": []
+}
 ```
 
-Every key is optional. `generator` is `natural`, `flat` or `void`. **Without a `seed`, every server gets its own random one**: it is made the first time the server starts and kept in `world/seed.txt`, so the world is the same after a restart. (A word works as a seed too.) A world saved by an older version under seed 1337 is found again with `"seed": 1337`.
+| Setting | Meaning |
+| --- | --- |
+| `port` | The port to listen on. A hosting panel's own port (`SERVER_PORT`) always wins. |
+| `motd` | The text under the server name in the multiplayer list. |
+| `maxPlayers`, `viewDistance` | How many players, and how many chunks around each player are sent (lower uses less memory and bandwidth). |
+| `generator` | `natural` (hills and trees), `flat` or `void` (a small platform, good for lobbies). Ignored when `mapFolder` is set. |
+| `seed` | The seed of a natural world. `null`: every server gets its own random one, made the first time it starts and kept in `world/seed.txt`. A word works too. |
+| `mapFolder` | An existing 1.18-or-newer world to show instead (the folder that holds `region/`), for example `"maps/lobby"`. `null`: use the generator. |
+| `protectWorld` | `true`: only operators can build or break blocks and everybody else joins in adventure mode (for lobbies). |
+| `whitelist` | `true`: only listed names and operators may join (see `/whitelist`). `false` leaves it to `whitelist.json`. |
+| `pvp` | Whether players can hurt each other. `false` cancels damage from players (a plugin can still allow it, for duels). |
+| `respawn` | What happens after a death. `immediate`: skip the death screen. `keepInventory`: keep the items (nothing is dropped on this server). `deathMessages`: tell everybody how the player died. |
+| `checkForUpdates` | Ask GitHub at startup (and every 6 hours) whether there is a newer version, and say so in the console. |
+| `requiredPlugins` | Plugin names that must load; the server refuses to start if one fails. |
 
-**Hosting panels:** the same settings can be given as environment variables, which win over the file: `QUARRY_PORT` (or the panel's `SERVER_PORT`), `QUARRY_GENERATOR`, `QUARRY_SEED`, `QUARRY_MAP`, `QUARRY_PROTECT_WORLD`, `QUARRY_MOTD`, `QUARRY_MAX_PLAYERS`, `QUARRY_VIEW_DISTANCE`, `QUARRY_VELOCITY_SECRET`, `QUARRY_WHITELIST`, `QUARRY_CHECK_UPDATES` and `QUARRY_OPS` (names separated by commas).
+**Hosting panels (environment variables):** some settings can also be given as environment variables, which win over the file when they are filled in (an empty variable counts as not set): `QUARRY_PORT` (or the panel's `SERVER_PORT`), `QUARRY_GENERATOR`, `QUARRY_SEED`, `QUARRY_MAP`, `QUARRY_PROTECT_WORLD`, `QUARRY_MOTD`, `QUARRY_MAX_PLAYERS`, `QUARRY_VIEW_DISTANCE`, `QUARRY_WHITELIST`, `QUARRY_VELOCITY_SECRET` and `QUARRY_OPS` (names separated by commas). The egg's variables are all empty by default, so `config.json` is used unless you fill one in. Newer settings (`pvp`, `respawn`, `checkForUpdates`...) have no variable on purpose: they are only in `config.json`.
 
-**Update check:** when it starts (and every 6 hours) the server asks GitHub's public API whether the branch it was built from has newer commits, and says so in the console, for example "A newer version of Quarry.ts is available: this server is 3 commits behind mc-1.21.11 on GitHub ...". It only reads; nothing is downloaded or changed. The running commit is written to `dist/build-info.json` by `npm run build` (or read from the `.git` folder), and a fork checks its own repository (the git remote `origin`). `/version` shows the result. Switch it off with `"checkForUpdates": false` in `server.json` or `QUARRY_CHECK_UPDATES=false`.
+**Update check:** when it starts (and every 6 hours) the server asks GitHub's public API whether the branch it was built from has newer commits, and says so in the console, for example "A newer version of Quarry.ts is available: this server is 3 commits behind mc-1.21.11 on GitHub ...". It only reads; nothing is downloaded or changed. The running commit is written to `dist/build-info.json` by `npm run build` (or read from the `.git` folder), and a fork checks its own repository (the git remote `origin`). `/version` shows the result. Switch it off with `"checkForUpdates": false` in `config.json`.
+
+**Death and respawn:** a player whose health reaches 0 sees the death screen with the message everybody reads ("Bob was slain by Alice"), the others see them fall over, and "Respawn" brings them back at the world spawn with full health and their items (`respawn` above). A dead player cannot move, break blocks or click. `/kill [player]` (operators) kills on purpose. Plugins can change where players come back, what they keep and what the message says; see [docs/plugins/05-players.md](docs/plugins/05-players.md) and [02-events.md](docs/plugins/02-events.md).
 
 **Pterodactyl:** import [pterodactyl/egg-quarry-ts.json](pterodactyl/egg-quarry-ts.json) (Admin area, Nests, Import Egg) and create a server from it. The install script downloads this repository's `mc-1.21.11` branch from GitHub, builds it, and the panel shows every setting above as a variable. Reinstalling the server updates the program and keeps the world and settings. After changing `pterodactyl/install.sh` or the variables in `pterodactyl/build-egg.cjs`, run `node pterodactyl/build-egg.cjs` to rebuild the egg file.
 

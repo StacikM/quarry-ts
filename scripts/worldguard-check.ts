@@ -275,6 +275,25 @@ async function main(): Promise<void> {
     console.log("ok explosions");
   }
 
+  // ---------------------------------------------------------------- pvp
+  {
+    bob.player.gameMode = GameMode.Survival;
+    stand(bob, 5, Y + 1, 5);
+    say(alice, "rg flag spawn pvp deny");
+    assert.strictEqual(bob.player.combat.damage(2, alice.player, "melee"), false, "pvp deny: players cannot hurt each other inside the region");
+    assert.strictEqual(bob.player.combat.damage(2, undefined, "fall"), true, "damage that is nobody's attack still works there");
+    bob.player.combat.reset();
+    stand(bob, 50, Y + 1, 50);
+    assert.strictEqual(bob.player.combat.damage(2, alice.player, "melee"), true, "outside the region they can");
+    bob.player.combat.reset();
+    stand(bob, 5, Y + 1, 5);
+    say(alice, "rg flag spawn pvp");
+    assert.strictEqual(bob.player.combat.damage(2, alice.player, "melee"), true, "without the flag, pvp is allowed");
+    bob.player.combat.reset();
+    bob.player.gameMode = GameMode.Creative;
+    console.log("ok pvp");
+  }
+
   // ---------------------------------------------------------------- it is saved
   assert.ok(fs.existsSync(path.join("plugins-data", "worldguard.json")));
   server.plugins.disable("worldguard");

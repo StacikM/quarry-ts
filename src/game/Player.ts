@@ -1,4 +1,4 @@
-import { Combat } from "./Combat";
+import { Combat, type DeathEvent } from "./Combat";
 import { Containers } from "./Containers";
 import { Scoreboard } from "./Scoreboard";
 import { experience } from "../protocol/lobbyPackets";
@@ -12,6 +12,12 @@ import { itemId } from "../world/blockStates";
 import {
   changeGameMode,
   clearTitles,
+  deathCombatEvent,
+  destroyEntities,
+  entityEvent,
+  respawn as respawnPacket,
+  spawnPlayer,
+  playerSkinParts,
   chunkBatchFinished,
   chunkBatchStart,
   entityHeadLook,
@@ -48,6 +54,10 @@ export class Player {
   /** Whether the player is flying (creative and spectator only). The client tells us. */
   flying = false;
   allowFlight = false;
+  /** True from the moment the player dies until they respawn. A dead player can only chat and click "Respawn". */
+  dead = false;
+  /** What the experience bar showed last, to show it again after a respawn (the client forgets it). */
+  private lastExperience: [number, number, number] | null = null;
   /** Set by lobby activity plugins, never by client packets. */
   moyActivity?: 'duel' | 'parkour';
   /** Which slot of the hotbar is selected (0-8), and what is in the hotbar slots, as item ids (-1 = nothing). */
@@ -134,6 +144,7 @@ export class Player {
   }
 
   setExperience(progress: number, level: number, totalExperience = 0): void {
+    this.lastExperience = [progress, level, totalExperience];
     this.send(experience(progress, level, totalExperience));
   }
 
@@ -320,6 +331,80 @@ export class Player {
   sendPosition(): void {
     this.awaitingTeleport = ++this.teleportCounter;
     this.send(playerPosition(this.awaitingTeleport, this.x, this.y, this.z, this.yaw, this.pitch));
+  }
+
+  get isDead(): boolean {
+    return this.dead;
+  }
+
+  /** Kills the player (as /kill does): they see the death screen and everybody reads how they died. Returns false if a plugin stopped it or they are dead already. */
+  kill(cause = "kill"): boolean {
+    return this.combat.kill(cause);
+  }
+
+  /** Called by Combat once the health is gone: the death screen, the death animation for everybody else, and the message. */
+  die(death: DeathEvent): void {
+    this.dead = true;
+    this.combat.releaseUse();
+    this.send(deathCombatEvent(this.entityId, death.message ?? `${this.username} died`));
+    this.server.broadcast(entityEvent(this.entityId, 3), this);
+    if (death.message && config.respawn.deathMessages) this.server.broadcastMessage(death.message);
+  }
+
+  /**
+   * Brings a dead player back: full health, at the world spawn (a plugin can choose another place, and whether the
+   * items are kept, in the playerRespawn event). It runs when the client presses "Respawn" (or at once, with
+   * respawn.immediate), and plugins can call it themselves to skip the death screen. Returns false if the player is not dead.
+   */
+  respawn(): boolean {
+    if (!this.dead) return false;
+    const spawn = this.server.getSpawnPoint();
+    const event = this.server.plugins.events.emit("playerRespawn", {
+      player: this,
+      position: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: 0, pitch: 0 },
+      keepInventory: config.respawn.keepInventory,
+    });
+    const at = event.position;
+    const usable = [at.x, at.y, at.z].every((n) => Number.isFinite(n) && Math.abs(n) < 30_000_000) && at.y >= -64 && at.y <= 320;
+    const place = usable ? at : { x: spawn.x, y: spawn.y, z: spawn.z, yaw: 0, pitch: 0 };
+
+    this.dead = false;
+    this.combat.reset(); // full health and food, no effects
+    if (!event.keepInventory) {
+      for (let slot = 0; slot < 46; slot++) this.setInventorySlot(slot, null, false);
+    }
+    this.x = place.x;
+    this.y = place.y;
+    this.z = place.z;
+    this.yaw = Number.isFinite(place.yaw) ? place.yaw ?? 0 : 0;
+    this.pitch = Number.isFinite(place.pitch) ? place.pitch ?? 0 : 0;
+    this.onGround = true;
+
+    // The client starts a new life, forgetting what it knew about itself: tell it again.
+    this.send(respawnPacket(this.gameMode));
+    this.flying = false;
+    this.send(playerAbilities(this.gameMode, false, this.allowFlight));
+    this.sentPermissionLevel = null;
+    this.syncPermissionLevel();
+    this.send(setHeldSlot(this.heldSlot));
+    this.containers.close();
+    this.containers.sync();
+    this.combat.sync();
+    if (this.lastExperience) this.send(experience(...this.lastExperience));
+    this.sendPosition();
+    this.loadedChunks.clear(); // send the chunks around the new place again, so the client cannot be left without ground
+    this.pendingChunks = [];
+    this.lastChunkX = null;
+    this.lastChunkZ = null;
+    this.updateLoadedChunks(true);
+
+    // The others saw the body fall over: remove it and show the player again.
+    this.server.broadcast(destroyEntities([this.entityId]), this);
+    this.server.broadcast(spawnPlayer(this), this);
+    this.server.broadcast(playerSkinParts(this), this);
+    this.syncEquipment();
+    this.server.plugins.events.emit("playerRespawned", { player: this });
+    return true;
   }
 
   setGameMode(gameMode: GameMode): void {

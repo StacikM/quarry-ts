@@ -19,17 +19,20 @@ const variable = (name, description, env_variable, default_value, rules) => ({
   field_type: "text",
 });
 
-/** The same variables the server reads (see src/config.ts and src/game/createWorld.ts). */
+/**
+ * The same variables the server reads (see src/config.ts and src/game/createWorld.ts). All of them are optional
+ * overrides: the settings live in config.json in the server's files, which the server creates and keeps complete.
+ * A variable that is filled in wins over config.json; leave it empty to use the file.
+ */
 const variables = [
-  variable("Check for updates", "Ask GitHub when the server starts (and every few hours) whether a newer version exists, and say so in the console. Nothing is downloaded or changed.", "QUARRY_CHECK_UPDATES", "true", "required|string|in:true,false"),
-  variable("Whitelist", "Only listed names and operators may join. Manage names with whitelist add/remove in the console.", "QUARRY_WHITELIST", "false", "required|string|in:true,false"),
-  variable("World type", "natural (hills and trees), flat, or void (an empty world with a small platform, good for lobbies). Ignored when a map folder is set.", "QUARRY_GENERATOR", "natural", "required|string|in:natural,flat,void"),
+  variable("Whitelist", "Only listed names and operators may join. Manage names with whitelist add/remove in the console.", "QUARRY_WHITELIST", "", "nullable|string|in:true,false"),
+  variable("World type", "natural (hills and trees), flat, or void (an empty world with a small platform, good for lobbies). Ignored when a map folder is set.", "QUARRY_GENERATOR", "", "nullable|string|in:natural,flat,void"),
   variable("Seed", "The seed of a natural world. Leave empty for a random one that is made on the first start and then kept. A word works too.", "QUARRY_SEED", "", "nullable|string|max:40"),
   variable("Map folder", "An existing world to show instead (1.18 or newer), as a folder inside the server's files that contains \"region\". Leave empty to generate a world.", "QUARRY_MAP", "", "nullable|string|max:100"),
-  variable("Protect the world", "true: only operators can build or break blocks and everybody else joins in adventure mode (for lobbies).", "QUARRY_PROTECT_WORLD", "false", "required|string|in:true,false"),
-  variable("Server list text", "The text under the server name in the multiplayer list.", "QUARRY_MOTD", "A Minecraft server written in TypeScript", "nullable|string|max:100"),
-  variable("Maximum players", "How many players can be online at once.", "QUARRY_MAX_PLAYERS", "20", "required|integer|between:1,10000"),
-  variable("View distance", "Chunks sent around each player. Lower uses less memory and bandwidth.", "QUARRY_VIEW_DISTANCE", "6", "required|integer|between:2,32"),
+  variable("Protect the world", "true: only operators can build or break blocks and everybody else joins in adventure mode (for lobbies).", "QUARRY_PROTECT_WORLD", "", "nullable|string|in:true,false"),
+  variable("Server list text", "The text under the server name in the multiplayer list.", "QUARRY_MOTD", "", "nullable|string|max:100"),
+  variable("Maximum players", "How many players can be online at once.", "QUARRY_MAX_PLAYERS", "", "nullable|integer|between:1,10000"),
+  variable("View distance", "Chunks sent around each player. Lower uses less memory and bandwidth.", "QUARRY_VIEW_DISTANCE", "", "nullable|integer|between:2,32"),
   variable("Velocity secret", "Behind a Velocity proxy: the text in Velocity's forwarding.secret. Setting it turns on modern forwarding and refuses direct connections. Leave empty to let players connect directly.", "QUARRY_VELOCITY_SECRET", "", "nullable|string|max:128"),
   variable("Operators", "Player names that may use operator commands, separated by commas.", "QUARRY_OPS", "", "nullable|string|max:200"),
   variable("Git repository", "Where the server's code is downloaded from when installing.", "GIT_REPO", "https://github.com/StacikM/quarry-ts", "required|string|max:200"),
@@ -42,7 +45,7 @@ const egg = {
   exported_at: "2026-10-30T00:00:00+00:00",
   name: "Quarry.ts (Minecraft 1.21.11)",
   author: "146170881+StacikM@users.noreply.github.com",
-  description: "A small, low-memory Minecraft 1.21.11 server written in TypeScript, made for lobbies. Supports Velocity modern forwarding, void worlds and importing a map.",
+  description: "A small, low-memory Minecraft 1.21.11 server written in TypeScript, made for lobbies. Supports Velocity modern forwarding, void worlds and importing a map. Settings live in config.json in the server's files; the variables below are optional overrides.",
   features: null,
   docker_images: {
     "Node.js 24": "ghcr.io/parkervcp/yolks:nodejs_24",

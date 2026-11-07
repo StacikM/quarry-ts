@@ -27,7 +27,7 @@ export function createWorld(): World {
 }
 
 /**
- * Every server gets its own world: without a seed in server.json (or QUARRY_SEED), a random one is made the
+ * Every server gets its own world: without a seed in config.json (or QUARRY_SEED), a random one is made the
  * first time and kept in world/seed.txt, so the same world comes back after a restart.
  */
 function readOrCreateSeed(): number {

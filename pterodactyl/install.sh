@@ -1,7 +1,7 @@
 #!/bin/bash
 # Installation script of the Quarry.ts egg. Pterodactyl runs it once (and again on "Reinstall") in a
 # Node.js 24 container with the server's folder mounted at /mnt/server.
-# Reinstalling updates the program but keeps world/, server.json, ops.json and velocity.json (git ignores them).
+# Reinstalling updates the program but keeps world/, config.json, ops.json and velocity.json (git ignores them).
 set -e
 
 TARGET="${INSTALL_DIR:-/mnt/server}"
