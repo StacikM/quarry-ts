@@ -13,3 +13,6 @@
 /migrate/
 /whitelist.json
 /whitelist.json.corrupt*
+
+# Folders the checks make in the project root and normally delete again
+/.plugin-docs-check-*/
