@@ -1,5 +1,9 @@
+import { Combat } from "./Combat";
+import { Containers } from "./Containers";
+import { Scoreboard } from "./Scoreboard";
+import { experience } from "../protocol/lobbyPackets";
 import type { Connection, ProfileProperty } from "../network/Connection";
-import type { PacketWriter } from "../network/PacketWriter";
+import { PacketWriter } from "../network/PacketWriter";
 import type { MinecraftServer } from "./Server";
 import { GameMode } from "./GameMode";
 import { config } from "../config";
@@ -11,6 +15,7 @@ import {
   chunkBatchFinished,
   chunkBatchStart,
   entityHeadLook,
+  entityEquipment,
   entityTeleport,
   playerAbilities,
   playerListUpdateGameMode,
@@ -42,11 +47,17 @@ export class Player {
 
   /** Whether the player is flying (creative and spectator only). The client tells us. */
   flying = false;
+  allowFlight = false;
+  /** Set by lobby activity plugins, never by client packets. */
+  moyActivity?: 'duel' | 'parkour';
   /** Which slot of the hotbar is selected (0-8), and what is in the hotbar slots, as item ids (-1 = nothing). */
   heldSlot = 0;
   readonly hotbar: number[] = new Array(9).fill(-1);
   /** Everything the player carries (see Inventory). The hotbar array above mirrors its hotbar slots. */
   readonly inventory = new Inventory();
+  readonly scoreboard = new Scoreboard(this);
+  readonly combat = new Combat(this);
+  readonly containers = new Containers(this);
   /** Which skin layers this player shows (bits: cape, jacket, left and right sleeve, left and right pants leg, hat). Everything on until the client says otherwise. */
   skinParts = 0x7f;
 
@@ -104,7 +115,12 @@ export class Player {
     this.send(permissionLevel(this.entityId, level));
   }
 
+  hasPermission(node: string): boolean {
+    return this.server.permissions?.has(this.uuid, node) ?? this.isOp;
+  }
+
   get isOp(): boolean {
+    if (this.server.permissions) return this.server.permissions.has(this.uuid, "quarry.admin");
     return config.ops.some((name) => name.toLowerCase() === this.username.toLowerCase());
   }
 
@@ -115,6 +131,15 @@ export class Player {
 
   send(packet: PacketWriter): void {
     this.connection.send(packet);
+  }
+
+  setExperience(progress: number, level: number, totalExperience = 0): void {
+    this.send(experience(progress, level, totalExperience));
+  }
+
+  sendPluginMessage(channel: string, data: Buffer): void {
+    if (!/^[a-z0-9_.-]+:[a-z0-9/._-]+$/.test(channel)) throw new Error(`Invalid plugin channel: ${channel}`);
+    this.send(pluginMessage(channel, data));
   }
 
   sendMessage(text: string, color?: string): void {
@@ -128,7 +153,8 @@ export class Player {
   setInventorySlot(slot: number, stack: ItemStack | null, tellClient = true): boolean {
     if (!this.inventory.set(slot, stack)) return false;
     if (slot >= HOTBAR_START && slot < HOTBAR_START + 9) this.hotbar[slot - HOTBAR_START] = this.inventory.get(slot)?.itemId ?? -1;
-    if (tellClient) this.send(setInventorySlot(slot, this.inventory.get(slot)));
+    if (tellClient) this.send(setInventorySlot(slot, this.inventory.get(slot), this.containers.stateId));
+    if (slot === 36 + this.heldSlot || slot === 45 || slot >= 5 && slot <= 8) this.syncEquipment();
     return true;
   }
 
@@ -155,6 +181,16 @@ export class Player {
     if (!Number.isInteger(slot) || slot < 0 || slot > 8) return;
     this.heldSlot = slot;
     this.send(setHeldSlot(slot));
+    this.combat.releaseUse();
+    this.syncEquipment();
+  }
+
+  syncEquipment(): void {
+    this.server.broadcast(entityEquipment(this.entityId, [
+      {slot:0,item:this.inventory.get(36+this.heldSlot)}, {slot:1,item:this.inventory.get(45)},
+      {slot:2,item:this.inventory.get(8)}, {slot:3,item:this.inventory.get(7)},
+      {slot:4,item:this.inventory.get(6)}, {slot:5,item:this.inventory.get(5)},
+    ]), this);
   }
 
   /** Text above the hotbar. */
@@ -290,9 +326,19 @@ export class Player {
     this.gameMode = gameMode;
     if (gameMode !== GameMode.Creative && gameMode !== GameMode.Spectator) this.flying = false;
     this.send(changeGameMode(gameMode));
-    this.send(playerAbilities(gameMode, this.flying));
+    this.send(playerAbilities(gameMode, this.flying, this.allowFlight));
     // The tab list also stores game modes (and the client uses it to
     // decide if *you* are in spectator mode), so update it for everyone.
     this.server.broadcast(playerListUpdateGameMode(this));
+  }
+
+  setAllowFlight(allowed: boolean): void {
+    this.allowFlight = allowed;
+    if (!allowed) this.flying = false;
+    this.send(playerAbilities(this.gameMode, this.flying, allowed));
+  }
+
+  setVelocity(x: number, y: number, z: number): void {
+    this.server.broadcast(new PacketWriter(0x63).writeVarInt(this.entityId).writeVelocity(x, y, z));
   }
 }

@@ -55,7 +55,7 @@ interface PrimedTnt {
  * TNT and explosions. Lit TNT is a block that turns into an entity, which falls, flashes and explodes after
  * four seconds. An explosion shoots 1352 rays out from its centre; each ray eats blocks until its strength is
  * used up (hard blocks use it up faster). Every block a ray went through with strength left is destroyed.
- * Nothing is dropped, there are no health points on this server so nobody is hurt, and players are thrown back.
+ * Nothing is dropped, and players are thrown back but not hurt (the combat system has health, but explosion damage is not connected to it yet).
  */
 export class Explosions {
   /** Where the randomness comes from; tests replace it. */

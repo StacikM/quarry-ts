@@ -1,0 +1,11 @@
+# Combat and containers
+
+Core melee is server-authoritative: reach/solid-cube occlusion, recharge, Sharpness, Strength/Weakness, armor/toughness/Protection/Resistance, absorption, damage immunity and cancellable damage/death hooks. Shield blocking requires the actual held item, activation delay and facing; attacks/release/slot changes clear blocking. Charged axes disable shields temporarily.
+
+Bow charge, Power/Infinity, authoritative ballistic arrows and target/block hits are implemented. Arrows are removed with the duel owner; no client hit report is trusted. Melee knockback, timed steak/apples/potions, regeneration/absorption/speed and combat metadata are implemented. Potions leave no bottle in duels, matching the deployed custom listener.
+
+Containers support immutable27/54slot selectors and editable54slot admin kits with close/save callback. Survival and editor moves use server-owned stacks, stale-state resync, stack limits and metadata identity. Pickup/place, splitting, shift moves and hotbar swaps work. Crafting, drag distribution, double-click collection, dropping and creative cloning are refused/resynchronized. Cursor overflow is retained and close/open is refused until it can be returned. A plugin must persist inventory/cursor when adding arbitrary reconnect persistence.
+
+Match plugins must cancel lethal events before restoring a player, save recovery snapshots before inventory changes, and block damage outside active opponents. The shipped migration plugin does this and preserves imported unbreakable default kits. Custom breakable-kit durability, full vanilla collision/anticheat, every effect/enchantment, exact sprint/critical/sweeping behavior and environmental simulation remain incomplete. Do not describe this as full Paper/vanilla parity.
+
+Checks: scripts/combat-container-check.ts validates inventory conservation, metadata, stale packets, immutable extraction rejection, melee/shields/release, damage/death cancellation, timed effects/consumption, vector encoding, bow Infinity, arrow hits and independent protocol774 decoding. scripts/migration-integration-check.ts verifies configured plugin lifecycles. Live socket checks cover deployment but do not replace human-client acceptance.

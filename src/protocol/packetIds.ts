@@ -77,10 +77,19 @@ export const PlayIn = {
   HeldItemChange: 0x34,
   SetCreativeSlot: 0x37,
   Swing: 0x3c,
+  ContainerClick: 0x11,
+  ContainerClose: 0x12,
+  PluginMessage: 0x15,
+  UseItem: 0x40,
   UseItemOn: 0x3f, // placing a block
 } as const;
 
 export const PlayOut = {
+  ResetScore: 0x4d,
+  DisplayObjective: 0x60,
+  Experience: 0x65,
+  ScoreboardObjective: 0x68,
+  ScoreboardScore: 0x6c,
   SpawnEntity: 0x01,
   Animation: 0x02,
   BlockChangedAck: 0x04,

@@ -13,6 +13,8 @@ import { BanList } from "./bans";
 import { ConsoleSender } from "./CommandSender";
 import { ServerStats } from "./stats";
 import { Player } from "./Player";
+import type { ProxyPermissions } from "./Permissions";
+import { Projectiles } from './Projectiles';
 import { NpcManager } from "./NpcManager";
 import { config } from "../config";
 import { formatError, logger } from "../util/logger";
@@ -53,6 +55,9 @@ const AUTOSAVE_BUDGET_MS = 5;
 const MAX_CATCH_UP_TICKS = 5;
 
 export class MinecraftServer {
+  /** Installed by the network lobby plugin; local ops are ignored while present. */
+  permissions?: ProxyPermissions;
+  readonly projectiles = new Projectiles(this);
   readonly world = createWorld();
   readonly plugins = new PluginManager(this);
   /** Who is banned. Read from bans.json when the server is created. */
@@ -104,6 +109,8 @@ export class MinecraftServer {
 
   start(): void {
     this.plugins.loadAll();
+    const missing=config.requiredPlugins.filter(name=>!this.plugins.getEnabledNames().includes(name));
+    if(missing.length){this.plugins.disableAll();throw new Error('Required plugins failed to load: '+missing.join(', '));}
     this.stats.start();
     this.tcpServer.listen(config.port, config.host, () => {
       logger.info(`Listening on ${config.host}:${config.port}`);
@@ -210,6 +217,8 @@ export class MinecraftServer {
     let afterChunks = afterPlugins;
     const before = { ...this.world.timings };
     try {
+      for (const player of this.players.values()) player.combat.tick();
+      this.projectiles.tick();
       this.npcs.tick(this.tickCount);
       this.explosions.tick();
       if (this.tickCount % 20 === 0) for (const player of this.players.values()) player.syncPermissionLevel(); // /op and /deop take effect on the client within a second
@@ -227,7 +236,7 @@ export class MinecraftServer {
       const ms = (value: number): string => value.toFixed(0);
       warnSlow(
         "slow-tick",
-        `Slow tick: ${ms(endedAt - startedAt)} ms (a tick is 50). Plugin tasks ${ms(afterPlugins - startedAt)} ms, NPCs and TNT ${ms(afterWorld - afterPlugins)} ms, ` +
+        `Slow tick: ${ms(endedAt - startedAt)} ms (a tick is 50). Plugin tasks ${ms(afterPlugins - startedAt)} ms, combat, arrows, NPCs and TNT ${ms(afterWorld - afterPlugins)} ms, ` +
           `sending chunks ${ms(afterChunks - afterWorld)} ms (loading the map ${ms(t.generateMs - before.generateMs)}, light ${ms(t.lightMs - before.lightMs)}, ` +
           `packing ${ms(t.encodeMs - before.encodeMs)}), autosave ${ms(endedAt - afterChunks)} ms` +
           this.throttleNote(),

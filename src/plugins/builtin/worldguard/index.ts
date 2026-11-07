@@ -12,7 +12,7 @@ import {
  * selection (the wooden axe, //pos1 and //pos2). The rules are described in regions.ts.
  *
  * It looks at breaking and placing blocks (lighting TNT counts as breaking it), explosions, and walking in and out. It does not protect doors and the like,
- * and there is no fighting or fire on this server, so the flags for those do not exist.
+ * and there is no fire on this server, so that flag does not exist. Damage between players is left to plugins (cancel playerDamage).
  */
 
 const HELP = [

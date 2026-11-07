@@ -26,6 +26,39 @@ export function handlePlay(conn: Connection, packetId: number, reader: PacketRea
   if (!player) return;
 
   switch (packetId) {
+    case PlayIn.ContainerClick: {
+      const windowId = reader.readVarInt();
+      const stateId = reader.readVarInt();
+      const slot = reader.readShort();
+      const button = reader.readByte();
+      const mode = reader.readVarInt();
+      reader.readRemaining(); // Hashed client predictions never replace authoritative stacks.
+      const event = player.server.plugins.events.emit('inventoryClick', { player, windowId, cancelled: false });
+      if (event.cancelled) player.containers.sync();
+      else player.containers.click({ windowId, stateId, slot, button, mode });
+      break;
+    }
+
+    case PlayIn.ContainerClose:
+      player.containers.close(reader.readVarInt());
+      break;
+
+    case PlayIn.PluginMessage: {
+      const channel = reader.readString();
+      const data = Buffer.from(reader.readRemaining());
+      player.server.plugins.events.emit("pluginMessage", { player, channel, data });
+      break;
+    }
+
+    case PlayIn.UseItem: {
+      const hand = reader.readVarInt();
+      const sequence = reader.readVarInt();
+      reader.readFloat(); // yaw
+      reader.readFloat(); // pitch
+      try { if (!emitItemUse(player, hand)) player.combat.useItem(hand as 0 | 1); } finally { player.send(blockChangedAck(sequence)); }
+      break;
+    }
+
     case PlayIn.KeepAlive: {
       const id = Number(reader.readLong());
       if (id === player.pendingKeepAliveId) {
@@ -84,10 +117,13 @@ export function handlePlay(conn: Connection, packetId: number, reader: PacketRea
       break;
     }
 
-    case PlayIn.PlayerAbilities:
+    case PlayIn.PlayerAbilities: {
       // Bit 1 says the player is flying. Only players who may fly can be.
-      player.flying = (reader.readUnsignedByte() & 2) !== 0 && (player.gameMode === GameMode.Creative || player.gameMode === GameMode.Spectator);
+      const flying = (reader.readUnsignedByte() & 2) !== 0;
+      const event = player.server.plugins.events.emit('playerFlight', { player, flying, cancelled: false });
+      if (!event.cancelled) player.flying = flying && (player.allowFlight || player.gameMode === GameMode.Creative || player.gameMode === GameMode.Spectator);
       break;
+    }
 
     case PlayIn.PlayerAction:
       handleDigging(player, reader);
@@ -99,7 +135,7 @@ export function handlePlay(conn: Connection, packetId: number, reader: PacketRea
 
     case PlayIn.HeldItemChange: {
       const slot = reader.readShort();
-      if (slot >= 0 && slot <= 8) player.heldSlot = slot;
+      if (slot >= 0 && slot <= 8) { player.heldSlot = slot; player.combat.releaseUse(); player.syncEquipment(); }
       break;
     }
 
@@ -154,6 +190,18 @@ export function handlePlay(conn: Connection, packetId: number, reader: PacketRea
       const hand = mouse === 1 ? 0 : reader.readVarInt();
       const sneaking = reader.readBoolean();
       if (player.gameMode === GameMode.Spectator || hand !== 0 || mouse === 2) break; // one event per click
+      if (mouse === 1 && player.server.plugins.events.emit("playerAttack", { player, targetEntityId: target, cancelled: false }).cancelled) break;
+      if (mouse === 1) {
+        const victim = player.server.getOnlinePlayers().find(other => other.entityId === target);
+        if (victim) { player.combat.attack(victim); break; }
+      }
+      if (mouse === 0) {
+        const other = player.server.getOnlinePlayers().find(p => p.entityId === target);
+        if (other) {
+          player.server.plugins.events.emit('playerEntityInteract', { player, target: other, sneaking, cancelled: false });
+          break;
+        }
+      }
       player.server.npcs.handleInteract(player, target, mouse === 1 ? "left" : "right", sneaking);
       break;
     }
@@ -163,7 +211,7 @@ export function handlePlay(conn: Connection, packetId: number, reader: PacketRea
       player.server.broadcast(animation(player.entityId, reader.readVarInt() === 0 ? 0 : 3), player);
       break;
 
-    // Everything else (inventory clicks, settings, plugin channels...)
+    // Everything else
     // is ignored. That's fine, the client doesn't need an answer.
   }
 }
@@ -220,6 +268,7 @@ function moveTo(player: Player, x: number, y: number, z: number, yaw: number, pi
 }
 
 function onPlayerMoved(player: Player, from: { x: number; y: number; z: number }): void {
+  player.server.plugins.events.emit("playerMove", { player, from });
   if (player.y < VOID_Y) {
     const spawn = player.server.getSpawnPoint();
     player.teleport(spawn.x, spawn.y, spawn.z);
@@ -231,7 +280,6 @@ function onPlayerMoved(player: Player, from: { x: number; y: number; z: number }
   player.server.broadcast(entityTeleport(player), player);
   player.server.broadcast(entityHeadLook(player), player);
   player.updateLoadedChunks();
-  player.server.plugins.events.emit("playerMove", { player, from });
 }
 
 /**
@@ -248,6 +296,16 @@ function handleDigging(player: Player, reader: PacketReader): void {
   const sequence = reader.readVarInt();
 
   try {
+    if (status === 5) player.combat.finishUse();
+    if (status === 3 || status === 4) { player.containers.sync(); return; }
+    if (status === 6) {
+      const event = player.server.plugins.events.emit('inventoryClick', { player, windowId:0, cancelled:false });
+      if (!event.cancelled) {
+        const slot=36+player.heldSlot,main=player.inventory.get(slot),off=player.inventory.get(45);
+        player.setInventorySlot(slot,off);player.setInventorySlot(45,main);player.combat.releaseUse();
+      }
+      player.containers.sync();return;
+    }
     if (status === 0 && isInWorld(pos) && player.gameMode !== GameMode.Spectator) {
       const interact = player.server.plugins.events.emit("playerInteract", {
         player, position: pos, face, click: "left", item: itemName(itemInHand(player, 0)), cancelled: false,
@@ -291,9 +349,9 @@ function handleDigging(player: Player, reader: PacketReader): void {
 /** The block whose digging a plugin cancelled, per player, so the end of that dig does not break it anyway. */
 const cancelledDigs = new WeakMap<Player, BlockPosition>();
 
-/** The item in the hand the player used: the selected hotbar slot for the main hand. We know nothing about the off hand. */
+/** The item in the hand the player used: the selected hotbar slot for the main hand. Offhand is inventory slot 45. */
 function itemInHand(player: Player, hand: number): number {
-  return hand === 0 ? player.hotbar[player.heldSlot] : -1;
+  return hand === 0 ? player.hotbar[player.heldSlot] : player.inventory.get(45)?.itemId ?? -1;
 }
 
 function handleBlockPlacement(player: Player, reader: PacketReader): void {
@@ -306,6 +364,13 @@ function handleBlockPlacement(player: Player, reader: PacketReader): void {
   const sequence = reader.readVarInt();
 
   try {
+    if (emitItemUse(player, hand)) {
+      const offset = FACE_OFFSETS[face];
+      for (const pos of offset ? [clicked, { x: clicked.x + offset.x, y: clicked.y + offset.y, z: clicked.z + offset.z }] : [clicked]) {
+        if (isInWorld(pos)) player.send(blockChange(pos, player.server.world.getState(pos)));
+      }
+      return;
+    }
     if (hand === 0 && isInWorld(clicked) && player.gameMode !== GameMode.Spectator) {
       const interact = player.server.plugins.events.emit("playerInteract", {
         player, position: clicked, face, click: "right", item: itemName(itemInHand(player, 0)), cancelled: false,
@@ -411,4 +476,13 @@ function placeBlock(player: Player, hand: number, clicked: BlockPosition, face: 
 
 function isInWorld(pos: BlockPosition): boolean {
   return pos.y >= 0 && pos.y <= 255;
+}
+
+/** Returns true when a plugin consumes the use. */
+function emitItemUse(player: Player, hand: number): boolean {
+  if (hand !== 0 && hand !== 1 || player.gameMode === GameMode.Spectator) return true;
+  return player.server.plugins.events.emit("itemUse", {
+    player, hand, slot: hand === 0 ? player.heldSlot : 45,
+    item: itemName(itemInHand(player, hand)), cancelled: false,
+  }).cancelled;
 }

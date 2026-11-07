@@ -81,6 +81,19 @@ export class PacketWriter {
     return this.add(8, (b) => b.writeDoubleBE(value));
   }
 
+  /** Protocol 774's scaled, three-axis 48-bit vector. */
+  writeVelocity(x: number, y: number, z: number): this {
+    if (![x, y, z].every(Number.isFinite)) throw new RangeError('Invalid velocity');
+    const scale = Math.ceil(Math.max(Math.abs(x), Math.abs(y), Math.abs(z)));
+    if (!scale) return this.writeUnsignedByte(0);
+    if (scale > 4096) throw new RangeError('Velocity exceeds supported range');
+    const quantize = (v: number) => BigInt(Math.round((v / scale + 1) * 16383));
+    const packed = BigInt(scale > 3 ? (scale % 4) | 4 : scale) | quantize(x) << 3n | quantize(y) << 18n | quantize(z) << 33n;
+    this.writeUnsignedByte(Number(packed & 255n)).writeUnsignedByte(Number(packed >> 8n & 255n));
+    this.add(4, b => b.writeUInt32BE(Number(packed >> 16n)));
+    return scale > 3 ? this.writeVarInt(Math.floor(scale / 4)) : this;
+  }
+
   /** Writes a count followed by that many VarInts. */
   writeVarIntArray(values: readonly number[]): this {
     this.writeVarInt(values.length);

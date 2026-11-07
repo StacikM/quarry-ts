@@ -107,7 +107,7 @@ async function main(): Promise<void> {
     release();
     const slowTick = lines.find((line) => line.includes("Slow tick"));
     assert.ok(slowTick, `a tick over 100 ms is explained (${lines.join(" | ")})`);
-    assert.match(slowTick!, /Slow tick: 1[3-9]\d ms .*Plugin tasks 1[3-9]\d ms, NPCs and TNT \d+ ms, sending chunks \d+ ms \(loading the map \d+, light \d+, packing \d+\), autosave \d+ ms/);
+    assert.match(slowTick!, /Slow tick: 1[3-9]\d ms .*Plugin tasks 1[3-9]\d ms, combat, arrows, NPCs and TNT \d+ ms, sending chunks \d+ ms \(loading the map \d+, light \d+, packing \d+\), autosave \d+ ms/);
     assert.ok(lines.some((line) => line.includes('Plugin "heavyplugin" was slow in a scheduled task')), "and the plugin is named");
 
     capture();

@@ -98,5 +98,5 @@ main().finally(() => {
   process.chdir(root);
   if (path.dirname(temp) !== os.tmpdir() || !path.basename(temp).startsWith("quarry-whitelist-check-"))
     throw Error("Unsafe cleanup");
-  fs.rmSync(temp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  fs.rmSync(temp, { recursive: true, force: true, maxRetries: 30, retryDelay: 250 });
 });

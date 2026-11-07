@@ -1,4 +1,5 @@
 /node_modules/
+/maps/
 /dist/
 /world/
 /plugins-data/

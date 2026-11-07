@@ -54,7 +54,7 @@ Flags:
 
 The region named `__global__` covers the whole world: `/rg flag __global__ build deny` makes the world read-only for everybody but operators. Regions are saved in `plugins-data/worldguard.json`.
 
-It looks at breaking blocks, placing blocks and walking. It does not protect doors or other uses of a block, and there is no fighting, fire, mob spawning or explosions on this server, so those flags do not exist. WorldEdit edits are not checked against regions (only operators can edit).
+It looks at breaking blocks, placing blocks and walking. It does not protect doors or other uses of a block, and there is no fire or mob spawning on this server, so those flags do not exist. Fighting between players exists in the core (melee and bows) but has no region flag: plugins decide where damage is allowed by cancelling `playerDamage`. WorldEdit edits are not checked against regions (only operators can edit).
 
 ## For plugin authors
 
