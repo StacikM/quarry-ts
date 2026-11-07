@@ -27,6 +27,7 @@ async function main(): Promise<void> {
   const { EventBus } = await import("../src/plugins/EventBus");
   const { MinecraftServer } = await import("../src/game/Server");
   const { runConsoleCommand } = await import("../src/consoleCommands");
+  const { readCpuLimit, throttleSince, describeCpuLimit } = await import("../src/util/cpuLimit");
 
   const lines: string[] = [];
   const originalLog = console.log;
@@ -141,6 +142,40 @@ async function main(): Promise<void> {
     console.log("ok /perf lists plugin time");
   } finally {
     release();
+  }
+
+  // ---------------------------------------------------------------- the container's CPU limit and the pauses it causes
+  {
+    const folder = (files: Record<string, string>): string => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "mcserver-cgroup-"));
+      for (const [name, text] of Object.entries(files)) {
+        fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+        fs.writeFileSync(path.join(root, name), text);
+      }
+      return root;
+    };
+    // cgroup version 2: a quarter of a core, paused in 150 of 1000 periods for 12.5 s
+    const v2 = readCpuLimit(folder({ "cpu.max": "25000 100000\n", "cpu.stat": "usage_usec 99\nnr_periods 1000\nnr_throttled 150\nthrottled_usec 12500000\n" }));
+    assert.deepStrictEqual(v2, { cores: 0.25, periods: 1000, throttledPeriods: 150, throttledMs: 12500 });
+    assert.strictEqual(readCpuLimit(folder({ "cpu.max": "max 100000\n", "cpu.stat": "nr_periods 5\nnr_throttled 0\nthrottled_usec 0\n" }))?.cores, null, "\"max\" means no limit");
+    // cgroup version 1
+    const v1 = readCpuLimit(folder({ "cpu/cpu.cfs_quota_us": "200000\n", "cpu/cpu.cfs_period_us": "100000\n", "cpu/cpu.stat": "nr_periods 40\nnr_throttled 4\nthrottled_time 2000000000\n" }));
+    assert.deepStrictEqual(v1, { cores: 2, periods: 40, throttledPeriods: 4, throttledMs: 2000 });
+    assert.strictEqual(readCpuLimit(folder({ "cpu/cpu.cfs_quota_us": "-1\n", "cpu/cpu.cfs_period_us": "100000\n", "cpu/cpu.stat": "nr_periods 1\n" }))?.cores, null, "-1 means no limit");
+    assert.strictEqual(readCpuLimit(folder({})), null, "no cgroup files (Windows, macOS): nothing to report");
+
+    // Only what happened since the server started counts.
+    const since = throttleSince({ cores: 0.25, periods: 900, throttledPeriods: 100, throttledMs: 10000 }, v2!);
+    assert.deepStrictEqual(since, { cores: 0.25, periods: 100, throttledPeriods: 50, throttledMs: 2500 });
+
+    const heavy = describeCpuLimit(since);
+    assert.strictEqual(heavy[0], "CPU limit of this container: 25% of one core");
+    assert.ok(heavy[1].includes("50 of 100 periods") && heavy[1].includes("50.0%") && heavy[1].includes("2.5 s"));
+    assert.ok(heavy[2].includes("cause of lag") && heavy[2].includes("CPU limit in the panel"), "when it is a lot, it is called the cause");
+    const calm = describeCpuLimit({ cores: null, periods: 100, throttledPeriods: 0, throttledMs: 0 });
+    assert.deepStrictEqual(calm, ["CPU limit of this container: none", "The host has not paused the server for using too much CPU since it started."]);
+    assert.strictEqual(describeCpuLimit({ cores: 1, periods: 100000, throttledPeriods: 2, throttledMs: 40 }).length, 2, "a couple of pauses are not alarming");
+    console.log("ok CPU limit and pauses");
   }
 
   console.log("ALL PERF DIAGNOSTICS CHECKS PASS");

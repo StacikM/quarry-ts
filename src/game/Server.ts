@@ -195,6 +195,12 @@ export class MinecraftServer {
     return total;
   }
 
+  /** For the slow tick warning: has the host been pausing the server for using too much CPU? */
+  private throttleNote(): string {
+    const throttle = this.stats.cpuThrottle();
+    return throttle && throttle.throttledMs >= 100 ? `. The host has also paused the server for ${(throttle.throttledMs / 1000).toFixed(1)} s in total for using too much CPU (see /perf)` : "";
+  }
+
   /** One server tick (every 50 ms): runs scheduled plugin tasks, and times itself for /tps. */
   private tick(): void {
     const startedAt = performance.now();
@@ -223,7 +229,8 @@ export class MinecraftServer {
         "slow-tick",
         `Slow tick: ${ms(endedAt - startedAt)} ms (a tick is 50). Plugin tasks ${ms(afterPlugins - startedAt)} ms, NPCs and TNT ${ms(afterWorld - afterPlugins)} ms, ` +
           `sending chunks ${ms(afterChunks - afterWorld)} ms (loading the map ${ms(t.generateMs - before.generateMs)}, light ${ms(t.lightMs - before.lightMs)}, ` +
-          `packing ${ms(t.encodeMs - before.encodeMs)}), autosave ${ms(endedAt - afterChunks)} ms`,
+          `packing ${ms(t.encodeMs - before.encodeMs)}), autosave ${ms(endedAt - afterChunks)} ms` +
+          this.throttleNote(),
       );
     }
 

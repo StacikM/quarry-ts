@@ -1,6 +1,7 @@
 import v8 from "node:v8";
 import type { CommandSender, PluginCommand } from "../plugins/types";
 import type { MinecraftServer } from "./Server";
+import { describeCpuLimit } from "../util/cpuLimit";
 import { colour, sendUsage, senderCommand } from "./commandSupport";
 import { isOperatorName } from "./operators";
 import { banMessage, cleanReason } from "./bans";
@@ -52,6 +53,12 @@ function tpsLines(server: MinecraftServer): string[] {
     if (loop.maxMs > 100) {
       lines.push(`${colour.yellow}A stall over 50 ms freezes everyone for a moment. Generating many new chunks at once is the usual cause.`);
     }
+  }
+  const throttle = stats.cpuThrottle();
+  if (throttle) {
+    const [limit, ...rest] = describeCpuLimit(throttle);
+    lines.push(`${colour.gray}${limit}`);
+    for (const line of rest) lines.push(`${rest.length > 1 && line.startsWith("That is") ? colour.yellow : colour.gray}${line}`);
   }
   return lines;
 }

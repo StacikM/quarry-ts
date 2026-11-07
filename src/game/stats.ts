@@ -1,4 +1,5 @@
 import { monitorEventLoopDelay } from "node:perf_hooks";
+import { readCpuLimit, throttleSince, type CpuLimit } from "../util/cpuLimit";
 
 type LoopMonitor = ReturnType<typeof monitorEventLoopDelay>;
 
@@ -56,6 +57,7 @@ export class ServerStats {
   private loopWindowStartedAt: number;
 
   private cpuTimer: NodeJS.Timeout | null = null;
+  private cpuLimitAtStart: CpuLimit | null = null;
   private lastCpu = process.cpuUsage();
   private lastCpuAt = process.hrtime.bigint();
   private cpuPercentRecent = 0;
@@ -73,9 +75,16 @@ export class ServerStats {
     this.loopMonitor = monitorEventLoopDelay({ resolution: LOOP_RESOLUTION_MS });
     this.loopMonitor.enable();
     this.loopWindowStartedAt = this.now();
+    this.cpuLimitAtStart = readCpuLimit();
 
     this.cpuTimer = setInterval(() => this.sampleCpu(), 5000);
     this.cpuTimer.unref(); // never keeps the process alive on its own
+  }
+
+  /** The container's CPU limit and the pauses it caused since the server started, or null where that cannot be known (not Linux). */
+  cpuThrottle(): CpuLimit | null {
+    const now = this.cpuLimitAtStart ? readCpuLimit() : null;
+    return now && this.cpuLimitAtStart ? throttleSince(this.cpuLimitAtStart, now) : null;
   }
 
   stop(): void {
